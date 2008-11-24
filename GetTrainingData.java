@@ -19,9 +19,8 @@
  */
 
 import java.io.*;
+import java.net.*;
 import java.util.*;
-
-import rotate.Rotate;
 
 import ciberIF.*;
 
@@ -30,7 +29,7 @@ import ciberIF.*;
  * example of a basic agent
  * implemented using the java interface library.
  */
-public class jClient {
+public class GetTrainingData {
 	ciberIF cif;
 	private String robName;
 	private double irSensor0, irSensor1, irSensor2, compass;
@@ -44,10 +43,8 @@ public class jClient {
 	private double oldDir;
 	private double oldAngleDiff;
 	private double savedTime;
-	
-	// Controllers
-	Rotate RotateController = new Rotate();
-
+	BufferedWriter out;
+	Random r;
 
 	public static void main(String[] args) {
 		String host, robName;
@@ -100,7 +97,7 @@ public class jClient {
 //		Vector<Quadtree> path = p.aStar();
 
 		// create client
-		jClient client = new jClient();
+		GetTrainingData client = new GetTrainingData();
 
 		client.robName = robName;
 
@@ -113,15 +110,25 @@ public class jClient {
 	}
 
 	// Constructor
-	jClient() {
-		
+	GetTrainingData() {
 		cif = new ciberIF();
 		beacon = new beaconMeasure();
 
 		beaconToFollow = 0;
 		ground=-1;
 		left = right = 0;
-
+		
+		r = new Random();
+		
+		// Open File
+		try{
+			// Create file 
+			FileWriter fstream = new FileWriter("train.txt");
+			out = new BufferedWriter(fstream);
+		}catch (Exception e){//Catch exception if any
+			System.err.println("Error: " + e.getMessage());
+			System.exit(0);
+		}
 	}
 
 	/** 
@@ -133,6 +140,12 @@ public class jClient {
 			cif.ReadSensors();
 			decide(path);
 		}
+	}
+	
+	// returns InPow in a noise free environment
+	private double setEngine(double current, double effective) {
+		double inPow = 2 * (effective - current);
+		return inPow;
 	}
 
 	/**
@@ -169,12 +182,77 @@ public class jClient {
 		
 		if (collision || cif.GetStopButton() == true || cif.GetTime() > 10000) {
 			cif.Finish();
+			try {
+				out.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 			System.exit(0);
 		}
 		else {
+			System.out.println(cif.GetTime());
+			if(cif.GetTime() != savedTime) {
+				double angleDif = dir - oldDir;
+				oldDir = dir;
+				try {
+					out.write(","+angleDif+"\n");
+				} catch (IOException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+					System.exit(0);
+				}
+				double newLeft, newRight, leftIn, rightIn;
+				int signal = 1;
+				
+				// left engine
+				do {
+					if (r.nextBoolean() == true)
+						signal = -1;
+					else
+						signal = 1;
+					double n = r.nextInt(15);
+					newLeft = signal * n/100;
+					leftIn = setEngine(left, newLeft);
+				} while (Math.abs(leftIn) > 0.15);
+				//System.out.println("newLeft = " + newLeft + "leftIn = " + leftIn);
+				
+				// right engine
+				do {
+					if (r.nextBoolean() == true)
+						signal = -1;
+					else
+						signal = 1;
+					double n = r.nextInt(15);
+					newRight = signal * n/100;
+					rightIn = setEngine(right, newRight);
+				} while (Math.abs(rightIn) > 0.15);
+				//System.out.println("newRight = " + newRight + "rightIn = " + rightIn);
+				
+				// write to file
+				String line = +left+","+right+
+				","+leftIn+","+rightIn;
+				System.out.println(line);
+				try {
+					out.write(line);
+				} catch (IOException e) {
+					e.printStackTrace();
+					System.exit(0);
+				}
+				// new stuff
+				cif.DriveMotors(leftIn, rightIn);
+				left = newLeft;
+				right = newRight;
+				savedTime = cif.GetTime();
+			}
+			else {
+				//System.out.println("WTF?");
+			}
 			
+
+
+			
+
 		}
-			
 		//System.out.println("Time is " + cif.GetTime());
 		//System.out.println("Measures: ir0=" + irSensor0 + " ir1=" + irSensor1 + " ir2=" + irSensor2 + "\n");
 		//System.out.println("Measures: x=" + x + " y=" + y + " dir=" + dir);
