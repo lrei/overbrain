@@ -21,7 +21,7 @@
 import java.io.*;
 import java.util.*;
 
-import rotate.Rotate;
+import rotate.RotateNet;
 
 import ciberIF.*;
 
@@ -46,7 +46,7 @@ public class jClient {
 	private double savedTime;
 	
 	// Controllers
-	Rotate RotateController = new Rotate();
+	RotateNet RotateController = new RotateNet();
 
 
 	public static void main(String[] args) {
