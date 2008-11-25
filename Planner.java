@@ -1,3 +1,4 @@
+import java.awt.geom.Point2D;
 import java.util.Vector;
 
 
@@ -8,7 +9,7 @@ public class Planner {
 	Quadtree start;
 	Quadtree target;
 	
-	public Planner(Quadtree root, Point start, Point target, double minDistance) {
+	public Planner(Quadtree root, Point2D start, Point2D target, double minDistance) {
 		this.root = root;
 		this.start = findPoint(root, start);
 		if(this.start == null) {
@@ -114,11 +115,12 @@ public class Planner {
 	
 	private Vector<Quadtree> successors(Quadtree q) {
 		Vector<Quadtree> suc = new Vector<Quadtree>();
-		Point p = new Point();
+		Point2D.Double p = new Point2D.Double();
 		Quadtree a;
 		double x = q.rect.getCenterX();
 		double y = q.rect.getCenterY();
 		double w = q.rect.getWidth() + minDistance/2;
+		double h = q.rect.getHeight() + minDistance/2;
 		
 		//System.out.println("x=" + x + " y=" + y + " w=" + w);
 		
@@ -130,11 +132,11 @@ public class Planner {
 		a = findPoint(root, p);
 		if (a != null)
 			suc.add(a);
-		p.setLocation(x, y+w);
+		p.setLocation(x, y+h);
 		a = findPoint(root, p);
 		if (a != null)
 			suc.add(a);
-		p.setLocation(x, y-w);
+		p.setLocation(x, y-h);
 		a = findPoint(root, p);
 		if (a != null)
 			suc.add(a);
@@ -160,12 +162,14 @@ public class Planner {
 		return best;
 	}
 	
-	public Quadtree findPoint(Quadtree q, Point p) {
-		//System.out.println("findPoint " + p.toString());
-		if (q == null)
+	public Quadtree findPoint(Quadtree q, Point2D p) {
+		System.out.println("findPoint " + p.getX()+", "+p.getY());
+		if (q == null) {
+			System.out.println("EMPTY");
 			return null;
+		}
 		else if (q.contains(p) == false) {
-			//System.out.println(q.toString() + " does not contain point");
+			System.out.println(q.toString() + " does not contain point");
 			return null;
 		}
 		else if (q.occupied < ov) {
@@ -173,7 +177,7 @@ public class Planner {
 			return q;
 		}
 		else {
-			//System.out.println("Looking inside " + q.toString());
+			System.out.println("Looking inside " + q.toString());
 			// NW
 			Quadtree a = findPoint(q.nw, p);
 			if (a != null) {

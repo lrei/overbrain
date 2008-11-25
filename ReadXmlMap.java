@@ -1,4 +1,5 @@
 import java.awt.geom.GeneralPath;
+import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.io.File;
 import java.util.Vector;
@@ -12,10 +13,10 @@ import org.w3c.dom.NodeList;
 public class ReadXmlMap {
 	Quadtree qt;
 	double resolution;
-	Point target;
+	Point2D.Double target;
 	double radius;
 	Vector<GeneralPath> polygons;
-	Vector<Point> startPositions;
+	Vector<Point2D> startPositions;
 	int counter;
 
 	public ReadXmlMap(String mapFile, String gridFile) {
@@ -25,7 +26,7 @@ public class ReadXmlMap {
 	public ReadXmlMap(String mapFile, String gridFile, double res) {
 		qt = new Quadtree();
 		resolution = res;
-		target = new Point();
+		target = new Point2D.Double();
 		counter = 0;
 		readMap(mapFile);
 		readGrid(gridFile);
@@ -35,7 +36,7 @@ public class ReadXmlMap {
 		return this.qt;
 	}
 	
-	public Point getStart(int index) {
+	public Point2D getStart(int index) {
 		
 		if (index < 0 || index >= startPositions.size())
 			return null;
@@ -43,7 +44,7 @@ public class ReadXmlMap {
 		return startPositions.get(index);
 	}
 	
-	public Point getTarget() {
+	public Point2D getTarget() {
 		return target;
 	}
 
@@ -61,6 +62,7 @@ public class ReadXmlMap {
 			Float h = Float.valueOf(doc.getDocumentElement().getAttribute("Height"));
 			
 			qt.rect.setRect(0, 0, w, h);
+			//System.out.println("w="+w+" h="+h+ " --- x="+qt.rect.getCenterX()+" y="+qt.rect.getCenterY());;
 			
 			polygons = new Vector<GeneralPath>();
 
@@ -120,11 +122,11 @@ public class ReadXmlMap {
 			Document doc = db.parse(file);
 			doc.getDocumentElement().normalize();
 			
-			startPositions = new Vector<Point>();
+			startPositions = new Vector<Point2D>();
 			
 			NodeList items = doc.getElementsByTagName("Position");
 			for (int ii = 0; ii < items.getLength(); ii++) {
-				Point p = new Point();
+				Point2D.Double p = new Point2D.Double();
 				Element ep = (Element) items.item(ii);
 				double x = Float.valueOf(ep.getAttribute("X"));
 				double y = Float.valueOf(ep.getAttribute("Y"));
@@ -141,12 +143,10 @@ public class ReadXmlMap {
 		double w = root.rect.getWidth()/2;
 		double h = root.rect.getHeight()/2;
 		
-		if (w <= resolution || h <= resolution)
-			return;
 		
 		boolean intersect = false;
 		for (int ii = 0; ii < polygons.size(); ii++) {
-			if(root.rect.intersects(polygons.get(ii).getBounds2D())) {
+			if(polygons.get(ii).intersects(root.rect)){
 				intersect = true;
 				break;
 			}
@@ -154,6 +154,10 @@ public class ReadXmlMap {
 		if (intersect) {
 			root.occupied = 1;
 			counter++;
+			
+			if (w <= resolution || h <= resolution) {
+				return;
+			}
 			root.nw = new Quadtree();
 			root.ne = new Quadtree();
 			root.sw = new Quadtree();
@@ -164,6 +168,7 @@ public class ReadXmlMap {
 			double x = root.rect.getX();
 			double y = root.rect.getY();
 			
+			//System.out.println("x="+x +" y="+y);
 			
 			root.nw.rect.setRect(x, y, w, h);
 			root.sw.rect.setRect(x, y+h, w, h);

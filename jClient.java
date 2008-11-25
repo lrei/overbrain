@@ -18,10 +18,11 @@
     Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+import java.awt.geom.Point2D;
+import java.awt.geom.Point2D.Double;
 import java.io.*;
 import java.util.*;
 
-import rotate.RotateNet;
 
 import ciberIF.*;
 
@@ -39,14 +40,15 @@ public class jClient {
 	private boolean collision;
 	private double x,y,dir;
 	private double left, right;
+	private double tolerance = 0.5;
 
 	private int beaconToFollow;
 	private double oldDir;
 	private double oldAngleDiff;
 	private double savedTime;
 	
-	// Controllers
-	RotateNet RotateController = new RotateNet();
+	Vector<Point2D> path;
+
 
 
 	public static void main(String[] args) {
@@ -59,6 +61,7 @@ public class jClient {
 		robName = "jClient";
 		pos = 1;
 
+		
 
 		// parse command-line arguments
 		try {
@@ -90,15 +93,6 @@ public class jClient {
 			return;
 		}
 		
-
-
-		/*
-		 * READ THE MAP AND MAKE THE PLAN
-		 */
-//		ReadXmlMap a = new ReadXmlMap(args[0], args[1]);
-//		Planner p = new Planner(a.getQuadtree(), a.getStart(0), a.getTarget() , 0.5);
-//		Vector<Quadtree> path = p.aStar();
-
 		// create client
 		jClient client = new jClient();
 
@@ -108,42 +102,58 @@ public class jClient {
 		client.cif.InitRobot(robName, pos, host);
 
 		// main loop
-		client.mainLoop(null);
+		client.mainLoop();
 
 	}
 
 	// Constructor
 	jClient() {
-		
+
 		cif = new ciberIF();
 		beacon = new beaconMeasure();
 
 		beaconToFollow = 0;
 		ground=-1;
 		left = right = 0;
+		
+		/*
+		 * READ THE MAP AND MAKE THE PLAN
+		 */
+		ReadXmlMap a = new ReadXmlMap("CiberRTSS06_FinalLab.xml","CiberRTSS06_FinalGrid.xml");
+		Planner p = new Planner(a.getQuadtree(), a.getStart(0), a.getTarget() , 0.5);
+		Vector<Quadtree> qpath = p.aStar();
+		path = new Vector<Point2D>();
+		
+		for (int ii = 0; ii < qpath.size(); ii++) {	
+			path.add(ii, qpath.get(ii).getCenter());
+		}
+		for (int ii = 0; ii < path.size(); ii++) {	
+			System.out.println(path.get(ii));
+		}
+		
 
 	}
 
 	/** 
 	 * reads a new message, decides what to do and sends action to simulator
 	 */
-	public void mainLoop (Vector<Quadtree> path) {
+	public void mainLoop () {
 
 		while(true) {
 			cif.ReadSensors();
-			decide(path);
+			decide();
 		}
 	}
 
 	/**
 	 * basic reactive decision algorithm, decides action based on current sensor values
 	 */
-	public void decide(Vector<Quadtree> path) {
+	public void decide() {
 		if(cif.GetStartButton() == false)
 			return;
-		
-		
-		
+
+
+
 		if(cif.IsObstacleReady(0))
 			irSensor0 = cif.GetObstacleSensor(0);
 		if(cif.IsObstacleReady(1))
@@ -158,23 +168,30 @@ public class jClient {
 		if(cif.IsBeaconReady(beaconToFollow))
 			beacon = cif.GetBeaconSensor(beaconToFollow);
 
-		oldDir = dir;
 		x = cif.GetX();
 		y = cif.GetY();
 		dir = cif.GetDir();
 		if (cif.IsBumperReady())
 			collision = cif.GetBumperSensor();
-		
 
+
+		System.out.println("x="+x+" y="+y+" dir="+dir);
+		moveFwd(0.1);
 		
-		if (collision || cif.GetStopButton() == true || cif.GetTime() > 10000) {
-			cif.Finish();
-			System.exit(0);
+		if(this.path.size() > 0) {
+			Point2D.Double g = (Point2D.Double) this.path.get(0);
+			System.out.println("Goal is: "+g.x+", "+g.y);
+			boolean check = go(g.x, g.y);
+			if(check) {
+				System.out.println("---Reached Check " +g.x+", "+g.y+" at "+x+", "+y);
+				this.path.remove(0);
+			}
 		}
-		else {
-			
-		}
-			
+		else
+			stop();
+
+	
+
 		//System.out.println("Time is " + cif.GetTime());
 		//System.out.println("Measures: ir0=" + irSensor0 + " ir1=" + irSensor1 + " ir2=" + irSensor2 + "\n");
 		//System.out.println("Measures: x=" + x + " y=" + y + " dir=" + dir);
@@ -213,32 +230,100 @@ public class jClient {
 		//	        else if(beacon.beaconVisible && beacon.beaconDir < -20.0) 
 		//		    cif.DriveMotors(0.1,0.0);
 		//	        else cif.DriveMotors(0.1,0.1);
-//	}
+		//	}
 
-//	for(int i=0; i<5; i++)
-//		if(cif.NewMessageFrom(i))
-//			System.out.println("Message: From " + i + " to " + robName + " : \"" + cif.GetMessageFrom(i)+ "\"");
-//
-//	cif.Say(robName);
+		//	for(int i=0; i<5; i++)
+		//		if(cif.NewMessageFrom(i))
+		//			System.out.println("Message: From " + i + " to " + robName + " : \"" + cif.GetMessageFrom(i)+ "\"");
+		//
+		//	cif.Say(robName);
 
-	if(cif.GetTime() % 2 == 0) {
-		cif.RequestIRSensor(0);
-		if(cif.GetTime() % 8 == 0 || beaconToFollow == cif.GetNumberOfBeacons())
-			cif.RequestGroundSensor();
-		else
-			cif.RequestBeaconSensor(beaconToFollow);
-	}
-	else {
-		cif.RequestIRSensor(1);
-		cif.RequestIRSensor(2);
+		if(cif.GetTime() % 2 == 0) {
+			cif.RequestIRSensor(0);
+			if(cif.GetTime() % 8 == 0 || beaconToFollow == cif.GetNumberOfBeacons())
+				cif.RequestGroundSensor();
+			else
+				cif.RequestBeaconSensor(beaconToFollow);
+		}
+		else {
+			cif.RequestIRSensor(1);
+			cif.RequestIRSensor(2);
+		}
+
 	}
 	
+	public void rotate(double angle) {
+		double curAngle = dir;
+		double angleDiff = angle - curAngle;
+		
+		
+		//angleDiff = Math.toRadians(angleDiff);
+		if (angleDiff > Math.toDegrees(Math.PI))
+			angleDiff -= Math.toDegrees(Math.PI) * 2;
+		
+		if (angleDiff < -Math.toDegrees(Math.PI))
+			angleDiff += Math.toDegrees(Math.PI) * 2;
+		
+		
+		double rightIn = angleDiff * 0.15/180;
+		double leftIn = -angleDiff * 0.15/180;
+		cif.DriveMotors(leftIn, rightIn);
+		
+		System.out.println("angleDiff="+angleDiff+" rightIn="
+				+rightIn+" leftIn="+leftIn);
+		
+		left = (left + leftIn)/2;
+		right = (right + rightIn)/2;
+	}
+	
+	public void moveFwd(double percent) {
+		double leftIn;
+		double rightIn;
+		
+		leftIn = rightIn = 0.15*(percent);
+		cif.DriveMotors(leftIn, rightIn);
+		
+		left = (left + leftIn)/2;
+		right = (right + rightIn)/2;
+	}
+	public boolean stop() {
+		double leftIn;
+		double rightIn;
+		
+		leftIn = rightIn = 0;
+		cif.DriveMotors(leftIn, rightIn);
+		
+		left = (left + leftIn)/2;
+		right = (right + rightIn)/2;
+		
+		if(left == 0 && right == 0)
+			return true;
+		else
+			return false;
+	}
+	
+	public boolean go(double destX, double destY) {
+		double vx = destX - x;
+		double vy = destY - y;
+		
+		if((Math.abs(vx) < tolerance) && (Math.abs(vy) < tolerance))
+			return true;
+		
+		double destDir = Math.toDegrees(Math.atan2(vy, vx));
+		System.out.println("dest="+destX+" ,"+destY+" =>"+destDir);
+		System.out.println("destDir="+destDir);
+		
+		if(cif.GetTime() % 2 == 0)
+			rotate(destDir);
+		else
+			moveFwd(1.0);
+		
+		return false;
+	}
 
-}
-
-static void print_usage() {
-	System.out.println("Usage: java jClient [-robname <robname>] [-pos <pos>] [-host <hostname>[:<port>]]");
-}
+	static void print_usage() {
+		System.out.println("Usage: java jClient [-robname <robname>] [-pos <pos>] [-host <hostname>[:<port>]]");
+	}
 
 
 };

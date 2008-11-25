@@ -1,3 +1,4 @@
+import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 
 public class Quadtree {
@@ -19,27 +20,27 @@ public class Quadtree {
 		occupied = 0;
 	}
 	
-	public boolean contains(Point p) {
+	public boolean contains(Point2D p) {
 		if (rect.contains(p))
 			return true;
 		else
 			return false;
 	}
 	
-	public Point getCenter() {
-		Point p = new Point();
+	public Point2D getCenter() {
+		Point2D.Double p = new Point2D.Double();
 		p.setLocation(rect.getCenterX(), rect.getCenterY());
 		return p;
 	}
 	
 	public String toString() {
-		Point p = getCenter();
-		return p.toString(); // + "["+rect.getWidth()+","+rect.getHeight()+"]";
+		Point2D p = getCenter();
+		return p.getX() +", "+p.getY() + "["+rect.getWidth()+","+rect.getHeight()+"]";
 	}
 	
 	public double distance(Quadtree q) {
-		Point p1 = this.getCenter();
-		Point p2 = q.getCenter();
+		Point2D p1 = this.getCenter();
+		Point2D p2 = q.getCenter();
 		
 		return p1.distance(p2);
 	}
