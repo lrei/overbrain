@@ -19,8 +19,6 @@
  */
 
 import java.awt.geom.Point2D;
-import java.awt.geom.Point2D.Double;
-import java.io.*;
 import java.util.*;
 
 
@@ -34,20 +32,19 @@ import ciberIF.*;
 public class jClient {
 	ciberIF cif;
 	private String robName;
-	private double irSensor0, irSensor1, irSensor2, compass;
-	private beaconMeasure beacon;
-	private int    ground;
-	private boolean collision;
-	private double x,y,dir;
-	private double left, right;
 	private double tolerance = 0.5;
+	
+	private State state;
 
 	private int beaconToFollow;
-	private double oldDir;
-	private double oldAngleDiff;
-	private double savedTime;
-	
+
+	ReadXmlMap a;
+	Planner planner;
 	Vector<Point2D> path;
+	
+	Controller controller;
+	
+	boolean replan;
 
 
 
@@ -60,6 +57,7 @@ public class jClient {
 		host = "localhost";
 		robName = "jClient";
 		pos = 1;
+		//double IRSensorAngles[] = {15, -15, 60, -60};
 
 		
 
@@ -110,26 +108,27 @@ public class jClient {
 	jClient() {
 
 		cif = new ciberIF();
-		beacon = new beaconMeasure();
+		state = new State();
+		//beacon = new beaconMeasure();
 
 		beaconToFollow = 0;
-		ground=-1;
-		left = right = 0;
+		controller = null;
+		
+		//ground=-1;
+		//left = right = 0;
 		
 		/*
 		 * READ THE MAP AND MAKE THE PLAN
 		 */
-		ReadXmlMap a = new ReadXmlMap("CiberRTSS06_FinalLab.xml","CiberRTSS06_FinalGrid.xml");
-		Planner p = new Planner(a.getQuadtree(), a.getStart(0), a.getTarget() , 0.5);
-		Vector<Quadtree> qpath = p.aStar();
-		path = new Vector<Point2D>();
-		
-		for (int ii = 0; ii < qpath.size(); ii++) {	
-			path.add(ii, qpath.get(ii).getCenter());
-		}
-		for (int ii = 0; ii < path.size(); ii++) {	
-			System.out.println(path.get(ii));
-		}
+		a = new ReadXmlMap("CiberRTSS06_FinalLab.xml","CiberRTSS06_FinalGrid.xml");
+		planner = new Planner(a.getQuadtree(), a.getStart(0), a.getTarget() , 0.5);
+		path = planner.aStar();
+		replan = false;
+
+
+//		for (int ii = 0; ii < path.size(); ii++) {	
+//			System.out.println(path.get(ii));
+//		}
 		
 
 	}
@@ -153,73 +152,65 @@ public class jClient {
 			return;
 
 
-
-		if(cif.IsObstacleReady(0))
-			irSensor0 = cif.GetObstacleSensor(0);
-		if(cif.IsObstacleReady(1))
-			irSensor1 = cif.GetObstacleSensor(1);
-		if(cif.IsObstacleReady(2))
-			irSensor2 = cif.GetObstacleSensor(2);
-		if(cif.IsCompassReady())
-			compass = cif.GetCompassSensor();
-		if(cif.IsGroundReady())
-			ground = cif.GetGroundSensor();
-
-		if(cif.IsBeaconReady(beaconToFollow))
-			beacon = cif.GetBeaconSensor(beaconToFollow);
-
-		x = cif.GetX();
-		y = cif.GetY();
-		dir = cif.GetDir();
-		if (cif.IsBumperReady())
-			collision = cif.GetBumperSensor();
-
-
-		System.out.println("x="+x+" y="+y+" dir="+dir);
-		moveFwd(0.1);
+		state.updateSensors(cif);
 		
+		if(state.getTime() > 0)
+			System.out.println(state.getTime()+" Measures: ir0=" + state.getIR(0)
+				+ " ir1=" + state.getIR(1) + " ir2=" + state.getIR(2)
+				+ " ir3=" + state.getIR(3));
+
+		
+		if(avoidObstacles()) {
+			//System.out.println("replan flag set!");
+			replan = true;
+			controller = null;
+			return;
+		}
+
+		
+		if(replan) {
+			planner = new Planner(a.getQuadtree(), state.getPos(), a.getTarget() , 0.5);
+			path = planner.aStar();
+			replan = false;
+			System.out.println("NEW PLAN!");
+		}
+		
+		System.out.println("x="+state.getPos().getX()+" y="+state.getPos().getY()
+				+ " dir="+state.getDir());
+		if(controller != null) {
+			double [] act = controller.exec(state);
+			setEngine(act[0], act[1]);
+			
+			if(controller.isComplete())
+				controller = null;
+			
+			return;
+		}
+
 		if(this.path.size() > 0) {
 			Point2D.Double g = (Point2D.Double) this.path.get(0);
-			System.out.println("Goal is: "+g.x+", "+g.y);
-			boolean check = go(g.x, g.y);
-			if(check) {
-				System.out.println("---Reached Check " +g.x+", "+g.y+" at "+x+", "+y);
-				this.path.remove(0);
-			}
+			//System.out.println("Goal is: "+g.x+", "+g.y);
+			controller = new GoToController(state, g.getX(), g.getY());
+			state.addDest(g);
+			this.path.remove(0);
+//			boolean check = go(g.x, g.y);
+//			if(check) {
+//				System.out.println("---Reached Check " +g.x+", "+g.y+" at "
+//						+ state.getPos().getX() +", "
+//						+ state.getPos().getX());
+//				this.path.remove(0);
+//			}
 		}
-		else
-			stop();
+		else {
+			cif.Finish();
+			System.exit(0);
+		}
 
 	
 
 		//System.out.println("Time is " + cif.GetTime());
 		//System.out.println("Measures: ir0=" + irSensor0 + " ir1=" + irSensor1 + " ir2=" + irSensor2 + "\n");
-		//System.out.println("Measures: x=" + x + " y=" + y + " dir=" + dir);
 
-		//		if(ground==beaconToFollow)
-		//			cif.Finish();
-		//		else {
-		//			if(irSensor0>4.0 || irSensor1>4.0 ||  irSensor2>4.0) 
-		//				cif.DriveMotors(0.1,-0.1);
-		//			else if(irSensor1>1.0) cif.DriveMotors(0.1,0.0);
-		//			else if(irSensor2>1.0) cif.DriveMotors(0.0,0.1);
-		//			else {
-		//				double destX = path.get(0).getCenter().getX();
-		//				double destY = path.get(0).getCenter().getX();
-		//
-		//				// calculate direction
-		//				double vx = destX - x;
-		//				double vy = destY - y;
-		//				
-		//				double destDir = Math.atan2(vy, vx);
-		//				System.out.println("Objective: x=" + destX + " y=" + destY + " dir=" + destDir);
-		//				// rotate
-		//				double angleDiff = destDir - dir;
-		//				if (angleDiff > Math.PI)
-		//					angleDiff -= Math.PI * 2;
-		//				
-		//				if (angleDiff < -Math.PI)
-		//					angleDiff += Math.PI * 2;
 		//				
 		//				
 		//
@@ -252,74 +243,60 @@ public class jClient {
 
 	}
 	
-	public void rotate(double angle) {
-		double curAngle = dir;
-		double angleDiff = angle - curAngle;
-		
-		
-		//angleDiff = Math.toRadians(angleDiff);
-		if (angleDiff > Math.toDegrees(Math.PI))
-			angleDiff -= Math.toDegrees(Math.PI) * 2;
-		
-		if (angleDiff < -Math.toDegrees(Math.PI))
-			angleDiff += Math.toDegrees(Math.PI) * 2;
-		
-		
-		double rightIn = angleDiff * 0.15/180;
-		double leftIn = -angleDiff * 0.15/180;
-		cif.DriveMotors(leftIn, rightIn);
-		
-		System.out.println("angleDiff="+angleDiff+" rightIn="
-				+rightIn+" leftIn="+leftIn);
-		
-		left = (left + leftIn)/2;
-		right = (right + rightIn)/2;
-	}
 	
-	public void moveFwd(double percent) {
-		double leftIn;
-		double rightIn;
-		
-		leftIn = rightIn = 0.15*(percent);
+	public void setEngine(double leftIn, double rightIn) {
 		cif.DriveMotors(leftIn, rightIn);
-		
-		left = (left + leftIn)/2;
-		right = (right + rightIn)/2;
+		state.updateMotors(leftIn, rightIn);
 	}
-	public boolean stop() {
-		double leftIn;
-		double rightIn;
-		
-		leftIn = rightIn = 0;
-		cif.DriveMotors(leftIn, rightIn);
-		
-		left = (left + leftIn)/2;
-		right = (right + rightIn)/2;
-		
-		if(left == 0 && right == 0)
-			return true;
-		else
-			return false;
-	}
+
 	
-	public boolean go(double destX, double destY) {
-		double vx = destX - x;
-		double vy = destY - y;
+	public boolean avoidObstacles() {
+		double turnDistance = 5.0;
+		double frontAvoidDistance = 1.0;
+		double avoidDistance = 1.2;
+		double powIn = 0.1;
+		double backPowIn = 0.15;
 		
-		if((Math.abs(vx) < tolerance) && (Math.abs(vy) < tolerance))
+		double ir0 = state.getIR(0);
+		double ir1 = state.getIR(1);
+		double ir2 = state.getIR(2);
+		
+		if (state.collision()) {
+			cif.DriveMotors(backPowIn ,-backPowIn);
+			state.updateMotors(backPowIn, -backPowIn);
+			System.out.println("----- OUCH! COLLISION. -----");
 			return true;
+		}
 		
-		double destDir = Math.toDegrees(Math.atan2(vy, vx));
-		System.out.println("dest="+destX+" ,"+destY+" =>"+destDir);
-		System.out.println("destDir="+destDir);
-		
-		if(cif.GetTime() % 2 == 0)
-			rotate(destDir);
-		else
-			moveFwd(1.0);
+
+		if( ir0 > turnDistance 
+				|| ir1 > turnDistance 
+				||  ir2 > turnDistance) {
+			cif.DriveMotors(backPowIn,-backPowIn);
+			state.updateMotors(backPowIn, -backPowIn);
+			System.out.println("----- BACKTRACK! -----");
+			return true;
+		}
+		else if(ir1 > avoidDistance) {
+			cif.DriveMotors(powIn, 0.0);
+			state.updateMotors(powIn, 0.0);
+			System.out.println("----- LEFT! -----");
+			return true;
+		}
+		else if(ir2 > avoidDistance) {
+			cif.DriveMotors(0.0, powIn);
+			state.updateMotors(0.0, powIn);
+			System.out.println("----- RIGHT! -----");
+			return true;
+		}
+		else if(ir0 > frontAvoidDistance) {
+			System.out.println("----- Warning! -----");
+		}
 		
 		return false;
 	}
+	
+
 
 	static void print_usage() {
 		System.out.println("Usage: java jClient [-robname <robname>] [-pos <pos>] [-host <hostname>[:<port>]]");

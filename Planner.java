@@ -8,6 +8,7 @@ public class Planner {
 	Quadtree root;
 	Quadtree start;
 	Quadtree target;
+	Point2D targetPoint;
 	
 	public Planner(Quadtree root, Point2D start, Point2D target, double minDistance) {
 		this.root = root;
@@ -17,6 +18,7 @@ public class Planner {
 			System.exit(0);
 		}
 		//System.out.println("############");
+		targetPoint = target;
 		this.target = findPoint(root, target);
 		if(this.target == null)  {
 			System.out.println("Target not found inside map.");
@@ -32,7 +34,7 @@ public class Planner {
 		System.out.println(l.toString());
 	}
 	
-	public Vector<Quadtree> aStar() {
+	public Vector<Point2D> aStar() {
 		Vector<Quadtree> closedSet = new Vector<Quadtree>(); 
 		Vector<Quadtree> openSet = new Vector<Quadtree>();
 		
@@ -101,12 +103,13 @@ public class Planner {
 		
 	}
 	
-	private Vector<Quadtree> reconstruct() {
-		Vector<Quadtree> path = new Vector<Quadtree>();
+	private Vector<Point2D> reconstruct() {
+		Vector<Point2D> path = new Vector<Point2D>();
 		
 		Quadtree q = target;
-		while (q != null) {
-			path.add(0, q);
+		path.add(targetPoint);
+		while (q != null && q != start) {
+			path.add(0, q.getCenter());
 			q = q.parent;
 		}
 		
@@ -163,13 +166,13 @@ public class Planner {
 	}
 	
 	public Quadtree findPoint(Quadtree q, Point2D p) {
-		System.out.println("findPoint " + p.getX()+", "+p.getY());
+		//System.out.println("findPoint " + p.getX()+", "+p.getY());
 		if (q == null) {
-			System.out.println("EMPTY");
+			//System.out.println("EMPTY");
 			return null;
 		}
 		else if (q.contains(p) == false) {
-			System.out.println(q.toString() + " does not contain point");
+			//System.out.println(q.toString() + " does not contain point");
 			return null;
 		}
 		else if (q.occupied < ov) {
@@ -177,7 +180,7 @@ public class Planner {
 			return q;
 		}
 		else {
-			System.out.println("Looking inside " + q.toString());
+			//System.out.println("Looking inside " + q.toString());
 			// NW
 			Quadtree a = findPoint(q.nw, p);
 			if (a != null) {
@@ -202,10 +205,12 @@ public class Planner {
 				//System.out.println("FOUND!");
 				return a;
 			}
+			
+			return root;
 		}
 		//System.out.println("NOF FOUND!!!");
 		
-		return null;
+		//return null;
 	}
 
 }

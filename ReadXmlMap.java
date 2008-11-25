@@ -20,7 +20,7 @@ public class ReadXmlMap {
 	int counter;
 
 	public ReadXmlMap(String mapFile, String gridFile) {
-		this(mapFile, gridFile, 0.5);
+		this(mapFile, gridFile, 0.8);
 	}
 
 	public ReadXmlMap(String mapFile, String gridFile, double res) {
