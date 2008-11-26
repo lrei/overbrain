@@ -32,8 +32,7 @@ import ciberIF.*;
 public class Brain {
 	ciberIF cif;
 	private String robName;
-	private double tolerance = 0.5;
-	
+
 	double irSensor0;
 	double irSensor1;
 	double irSensor2;
@@ -59,7 +58,7 @@ public class Brain {
 
 		//default values
 		host = "localhost";
-		robName = "jClient";
+		robName = "Brain";
 		pos = 1;
 		//double IRSensorAngles[] = {15, -15, 60, -60};
 
@@ -129,12 +128,6 @@ public class Brain {
 		path = planner.aStar();
 		replan = false;
 
-
-		//		for (int ii = 0; ii < path.size(); ii++) {	
-		//			System.out.println(path.get(ii));
-		//		}
-
-
 	}
 
 	/** 
@@ -155,19 +148,36 @@ public class Brain {
 		if(cif.GetStartButton() == false)
 			return;
 
-		
-		if(cif.IsObstacleReady(0))
-			irSensor0 = cif.GetObstacleSensor(0);
-		
-		if(cif.IsObstacleReady(1))
-			irSensor1 = cif.GetObstacleSensor(1);
-		
-		if(cif.IsObstacleReady(2))
-			irSensor2 = cif.GetObstacleSensor(2);
+		/*
+		 * BEGIN SENSOR UPDATE
+		 */
 
-		System.out.println("n: "+irSensor0+" "+irSensor1+" "+irSensor2);
-		
-		state.updateSensors(cif);
+		if(cif.IsObstacleReady(0))
+			state.updateIR(0, cif.GetObstacleSensor(0));
+		if(cif.IsObstacleReady(1))
+			state.updateIR(1, cif.GetObstacleSensor(1));
+		if(cif.IsObstacleReady(2))
+			state.updateIR(2, cif.GetObstacleSensor(2));
+		if(cif.IsObstacleReady(3))
+			state.updateIR(3, cif.GetObstacleSensor(3));
+
+		if(cif.IsGroundReady())
+			state.updateGround(cif.GetGroundSensor());
+
+		//	    if(cif.IsCompassReady())
+		//		    compass = cif.GetCompassSensor();
+
+		if(cif.IsBeaconReady(beaconToFollow))
+			state.updateBeacon(cif.GetBeaconSensor(beaconToFollow));
+
+		Point2D.Double pos = new Point2D.Double();
+		pos.x = cif.GetX(); pos.y = cif.GetY();
+		state.updateLocation(pos);
+		state.updateDirection(cif.GetDir());
+
+		/*
+		 * END SENSOR UPDATE
+		 */
 
 		if(state.getTime() > 0)
 			System.out.println("time= "+state.getTime()+" Measures: ir0="
@@ -175,12 +185,7 @@ public class Brain {
 					+" ir2=" + state.getIR(2)+" ir3=" + state.getIR(3));
 
 
-		if(avoidObstacles()) {
-			//System.out.println("replan flag set!");
-			//replan = true;
-			//controller = null;
-			return;
-		}
+		boolean avoiding = avoidObstacles();
 
 
 		if(!replan) {
@@ -190,52 +195,17 @@ public class Brain {
 
 		System.out.println("x="+state.getPos().getX()+" y="+state.getPos().getY()
 				+ " dir="+state.getDir());
-		if(controller != null) {
+		if(controller != null && !avoiding) {
 			double [] act = controller.exec(state);
 			setEngine(act[0], act[1]);
 
 			if(controller.isComplete())
 				controller = null;
-
-			return;
 		}
 
-
-		//			boolean check = go(g.x, g.y);
-		//			if(check) {
-		//				System.out.println("---Reached Check " +g.x+", "+g.y+" at "
-		//						+ state.getPos().getX() +", "
-		//						+ state.getPos().getX());
-		//				this.path.remove(0);
-		//			}
-
-		else {
-			cif.Finish();
-			System.exit(0);
-		}
-
-
-
-		//System.out.println("Time is " + cif.GetTime());
-		//System.out.println("Measures: ir0=" + irSensor0 + " ir1=" + irSensor1 + " ir2=" + irSensor2 + "\n");
-
-		//				
-		//				
-		//
-		//				System.out.println("dir: " + dir);
-		//			}
-		//	        else if(beacon.beaconVisible && beacon.beaconDir > 20.0) 
-		//		    cif.DriveMotors(0.0,0.1);
-		//	        else if(beacon.beaconVisible && beacon.beaconDir < -20.0) 
-		//		    cif.DriveMotors(0.1,0.0);
-		//	        else cif.DriveMotors(0.1,0.1);
-		//	}
-
-		//	for(int i=0; i<5; i++)
-		//		if(cif.NewMessageFrom(i))
-		//			System.out.println("Message: From " + i + " to " + robName + " : \"" + cif.GetMessageFrom(i)+ "\"");
-		//
-		//	cif.Say(robName);
+		/*
+		 * BEGIN SENSOR REQUEST
+		 */
 
 		if(cif.GetTime() % 2 == 0) {
 			cif.RequestIRSensor(0);
@@ -247,8 +217,11 @@ public class Brain {
 		else {
 			cif.RequestIRSensor(1);
 			cif.RequestIRSensor(2);
+			cif.RequestIRSensor(3);
 		}
-
+		/*
+		 * END SENSOR REQUEST
+		 */
 	}
 
 

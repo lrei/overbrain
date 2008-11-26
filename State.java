@@ -2,7 +2,6 @@ import java.awt.geom.Point2D;
 import java.util.Vector;
 
 import ciberIF.beaconMeasure;
-import ciberIF.ciberIF;
 
 
 public class State {
@@ -14,21 +13,19 @@ public class State {
 	private boolean endLed;
 	private boolean returningLed;
 	private boolean visitingLed;
+	private boolean startBut;
+	private boolean stopBut;
 
 	private Vector<Double> irSensor0;
 	private Vector<Double> irSensor1;
 	private Vector<Double> irSensor2;
 	private Vector<Double> irSensor3;
-	private double irLatency = 1.0;
 	private Vector<beaconMeasure> beacon;
 
 	private int ground;
 	private boolean collision;
 
 	private double time;
-
-	private boolean startBut;
-	private boolean stopBut;
 	
 	private Point2D dest;
 	private double destDir;
@@ -54,45 +51,41 @@ public class State {
 		time = 0;
 	}
 
-	public void updateSensors(ciberIF cif) {
-
-		time = cif.GetTime();
-
-		if(cif.IsObstacleReady(0)) {
-			//cif.RequestIRSensor(0);
-			irSensor0.add(0, cif.GetObstacleSensor(0));
-		}
-		if(cif.IsObstacleReady(1)) {
-			//cif.RequestIRSensor(1);
-			irSensor1.add(0, cif.GetObstacleSensor(1));
-		}
-		if(cif.IsObstacleReady(2)) {
-			//cif.RequestIRSensor(2);
-			irSensor2.add(0, cif.GetObstacleSensor(2));
-		}
-		if(cif.IsObstacleReady(3)) {
-			//cif.RequestIRSensor(3);
-			irSensor3.add(0, cif.GetObstacleSensor(3));
-		}
-		//		if(cif.IsCompassReady())
-		//			compass = cif.GetCompassSensor();
-		if(cif.IsGroundReady())
-			ground = cif.GetGroundSensor();
-
-		if(cif.IsBeaconReady(0))
-			beacon.add(0,cif.GetBeaconSensor(0));
-
-		Point2D.Double loc = new Point2D.Double();
-		loc.x = cif.GetX();
-		loc.y = cif.GetY();
-		path.add(0, loc);
-
-		direction.add(0, cif.GetDir());
-
-		if (cif.IsBumperReady())
-			collision = cif.GetBumperSensor();
+	public void updateTime(double time) {
+		this.time = time;
 	}
-
+	
+	public void updateIR(int index, double value) {
+		if(index == 0)
+			this.irSensor0.add(0, value);
+		if(index == 1)
+			this.irSensor1.add(0, value);
+		if(index == 2)
+			this.irSensor2.add(0, value);
+		if(index == 3)
+			this.irSensor3.add(0, value);
+	}
+	
+	public void updateGround(int ground) {
+		this.ground = ground;
+	}
+	
+	public void updateBeacon(beaconMeasure beaconValue) {
+			beacon.add(0, beaconValue);
+	}
+	
+	public void updateLocation(Point2D cur) {
+		path.add(0, cur);
+	}
+	
+	public void updateDirection(double dir) {
+		direction.add(0, dir);
+	}
+	
+	public void updateBumper(boolean value) {
+		collision = value;
+	}
+	
 	public Point2D getPos() {
 		return path.get(0);
 	}
@@ -148,5 +141,8 @@ public class State {
 	public double getDestDir() {
 		return destDir;
 	}
-
+	
+	public int getGround() {
+		return ground;
+	}
 }
