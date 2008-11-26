@@ -19,7 +19,22 @@
  */
 
 import java.awt.geom.Point2D;
+import java.io.FileNotFoundException;
+import java.io.PrintWriter;
 import java.util.*;
+
+
+import behaviour.Behaviour;
+import behaviour.FollowBeaconBehaviour;
+import behaviour.MapBehaviour;
+import behaviour.MoveDirectionBehaviour;
+import behaviour.WallFollowBehaviour;
+
+import state.ProbMap;
+import state.State;
+import state.Direction;
+
+
 
 
 import ciberIF.*;
@@ -31,7 +46,7 @@ import ciberIF.*;
  */
 public class Brain {
 	ciberIF cif;
-	private String robName;
+	String robName;
 
 	double irSensor0;
 	double irSensor1;
@@ -45,7 +60,10 @@ public class Brain {
 	Planner planner;
 	Vector<Point2D> path;
 
-	Controller controller;
+	Behaviour controller;
+	MapBehaviour updateMap;
+	
+	ProbMap map;
 
 	boolean replan;
 
@@ -112,21 +130,13 @@ public class Brain {
 
 		cif = new ciberIF();
 		state = new State();
-		//beacon = new beaconMeasure();
-
 		beaconToFollow = 0;
 		controller = null;
-
-		//ground=-1;
-		//left = right = 0;
-
-		/*
-		 * READ THE MAP AND MAKE THE PLAN
-		 */
-		a = new ReadXmlMap("CiberRTSS06_FinalLab.xml","CiberRTSS06_FinalGrid.xml");
-		planner = new Planner(a.getQuadtree(), a.getStart(0), a.getTarget() , 0.5);
-		path = planner.aStar();
-		replan = false;
+		
+		// MAP
+		map = new ProbMap(28, 14);
+		updateMap = new MapBehaviour();
+		controller = new MoveDirectionBehaviour(180);
 
 	}
 
@@ -174,27 +184,56 @@ public class Brain {
 		pos.x = cif.GetX(); pos.y = cif.GetY();
 		state.updateLocation(pos);
 		state.updateDirection(cif.GetDir());
+		
+		state.updateTime(cif.GetTime());
+		
+		state.updateButtons(cif.GetFinished(), cif.GetReturningLed(),
+				cif.GetVisitingLed(), cif.GetStartButton(), cif.GetStopButton());
 
 		/*
 		 * END SENSOR UPDATE
 		 */
 
-		if(state.getTime() > 0)
-			System.out.println("time= "+state.getTime()+" Measures: ir0="
-					+ state.getIR(0)+" ir1="+state.getIR(1)
-					+" ir2=" + state.getIR(2)+" ir3=" + state.getIR(3));
-
+		System.out.println("time= "+state.getTime()+" Measures: ir0="
+				+ state.getIR(0)+" ir1="+state.getIR(1)
+				+" ir2=" + state.getIR(2)+" ir3=" + state.getIR(3));
+		
+		
+		// update map
+		updateMap.exec(state, map);
+		
+		if(state.getTime()==400) {
+			try {
+				PrintWriter writer = new PrintWriter("map.txt");
+	
+			for(double ii = 0; ii < map.getWidth(); ii+=0.1) {
+				for(double jj = 0; jj < map.getHeight(); jj+=0.1)
+					writer.print(String.valueOf(map.get(ii, jj)).subSequence(0, 3)+ " ");
+				writer.println("");
+			}
+			writer.println(" ");
+			System.exit(0);
+			} catch (FileNotFoundException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+				System.exit(0);
+			}
+			
+		}
+			
+			
 
 		boolean avoiding = avoidObstacles();
-
-
-		if(!replan) {
-			controller = new PathController(state, path);
-			replan = true;
-		}
+		
+		if(state.isBeaconVisible())
+			controller = new FollowBeaconBehaviour();
+		
+		if(avoiding && controller == null && !state.collision())
+			controller = new WallFollowBehaviour();
 
 		System.out.println("x="+state.getPos().getX()+" y="+state.getPos().getY()
 				+ " dir="+state.getDir());
+		
 		if(controller != null && !avoiding) {
 			double [] act = controller.exec(state);
 			setEngine(act[0], act[1]);
@@ -202,7 +241,14 @@ public class Brain {
 			if(controller.isComplete())
 				controller = null;
 		}
-
+		else if(controller == null && !avoiding)
+			controller = new WallFollowBehaviour();
+		
+		else if(controller == null && !avoiding)
+			controller = new MoveDirectionBehaviour(180);
+		
+		
+		
 		/*
 		 * BEGIN SENSOR REQUEST
 		 */
@@ -224,7 +270,6 @@ public class Brain {
 		 */
 	}
 
-
 	public void setEngine(double leftIn, double rightIn) {
 		cif.DriveMotors(leftIn, rightIn);
 		state.updateMotors(leftIn, rightIn);
@@ -233,7 +278,7 @@ public class Brain {
 
 	public boolean avoidObstacles() {
 		double turnDistance = 5.0;
-		double frontAvoidDistance = 1.0;
+		//double frontAvoidDistance = 1.0;
 		double avoidDistance = 1.2;
 		double powIn = 0.1;
 		double backPowIn = 0.15;
@@ -248,30 +293,41 @@ public class Brain {
 			System.out.println("----- OUCH! COLLISION. -----");
 			return true;
 		}
-
+		
+		// map check
+		double dir = state.getDir();
+		double lin = (state.getMotors()[0] + state.getMotors()[1])/2;
+		double futureX = state.getPos().getX() + Math.cos(dir)*lin;
+		double futureY = state.getPos().getY() + Math.sin(dir)*lin;
+		double prob = map.getRadius(futureX, futureY);
+		if(prob > 0.8)
+			System.out.println("PROBLEM!");
+		
+		// get dir, get futureX and futureY
+		// map.get(state.getPos().getX(), state.getPos().getY())
 
 		if( ir0 > turnDistance 
 				|| ir1 > turnDistance 
 				||  ir2 > turnDistance) {
 			cif.DriveMotors(backPowIn,-backPowIn);
 			state.updateMotors(backPowIn, -backPowIn);
+			state.setWallDir(Direction.none);
 			System.out.println("----- BACKTRACK! -----");
 			return true;
 		}
 		else if(ir1 > avoidDistance) {
 			cif.DriveMotors(powIn, 0.0);
 			state.updateMotors(powIn, 0.0);
+			state.setWallDir(Direction.left);
 			System.out.println("----- LEFT! -----");
 			return true;
 		}
 		else if(ir2 > avoidDistance) {
 			cif.DriveMotors(0.0, powIn);
 			state.updateMotors(0.0, powIn);
+			state.setWallDir(Direction.right);
 			System.out.println("----- RIGHT! -----");
 			return true;
-		}
-		else if(ir0 > frontAvoidDistance) {
-			System.out.println("----- Warning! -----");
 		}
 
 		return false;
