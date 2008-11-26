@@ -20,7 +20,7 @@ public class ReadXmlMap {
 	int counter;
 
 	public ReadXmlMap(String mapFile, String gridFile) {
-		this(mapFile, gridFile, 0.8);
+		this(mapFile, gridFile, 0.6);
 	}
 
 	public ReadXmlMap(String mapFile, String gridFile, double res) {
@@ -62,6 +62,12 @@ public class ReadXmlMap {
 			Float h = Float.valueOf(doc.getDocumentElement().getAttribute("Height"));
 			
 			qt.rect.setRect(0, 0, w, h);
+			
+			if(w<h)
+				w = h;
+			if(h>w)
+				h = w;
+			
 			//System.out.println("w="+w+" h="+h+ " --- x="+qt.rect.getCenterX()+" y="+qt.rect.getCenterY());;
 			
 			polygons = new Vector<GeneralPath>();

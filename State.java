@@ -59,19 +59,19 @@ public class State {
 		time = cif.GetTime();
 
 		if(cif.IsObstacleReady(0)) {
-			cif.RequestIRSensor(0);
+			//cif.RequestIRSensor(0);
 			irSensor0.add(0, cif.GetObstacleSensor(0));
 		}
 		if(cif.IsObstacleReady(1)) {
-			cif.RequestIRSensor(1);
+			//cif.RequestIRSensor(1);
 			irSensor1.add(0, cif.GetObstacleSensor(1));
 		}
 		if(cif.IsObstacleReady(2)) {
-			cif.RequestIRSensor(2);
+			//cif.RequestIRSensor(2);
 			irSensor2.add(0, cif.GetObstacleSensor(2));
 		}
 		if(cif.IsObstacleReady(3)) {
-			cif.RequestIRSensor(3);
+			//cif.RequestIRSensor(3);
 			irSensor3.add(0, cif.GetObstacleSensor(3));
 		}
 		//		if(cif.IsCompassReady())
