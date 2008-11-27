@@ -30,7 +30,7 @@ import behaviour.MapBehaviour;
 import behaviour.MoveDirectionBehaviour;
 import behaviour.WallFollowBehaviour;
 
-import state.ProbMap;
+import state.EstimatedMaze;
 import state.State;
 import state.Direction;
 
@@ -61,9 +61,8 @@ public class Brain {
 	Vector<Point2D> path;
 
 	Behaviour controller;
-	MapBehaviour updateMap;
-	
-	ProbMap map;
+
+	EstimatedMaze map;
 
 	boolean replan;
 
@@ -132,10 +131,9 @@ public class Brain {
 		state = new State();
 		beaconToFollow = 0;
 		controller = null;
-		
+
 		// MAP
-		map = new ProbMap(28, 14);
-		updateMap = new MapBehaviour();
+		map = new EstimatedMaze();
 		controller = new MoveDirectionBehaviour(180);
 
 	}
@@ -158,6 +156,7 @@ public class Brain {
 		if(cif.GetStartButton() == false)
 			return;
 
+		System.out.println("-------------------------------");
 		/*
 		 * BEGIN SENSOR UPDATE
 		 */
@@ -174,6 +173,9 @@ public class Brain {
 		if(cif.IsGroundReady())
 			state.updateGround(cif.GetGroundSensor());
 
+		if(cif.IsBumperReady())
+			state.updateBumper(cif.GetBumperSensor());
+
 		//	    if(cif.IsCompassReady())
 		//		    compass = cif.GetCompassSensor();
 
@@ -184,9 +186,9 @@ public class Brain {
 		pos.x = cif.GetX(); pos.y = cif.GetY();
 		state.updateLocation(pos);
 		state.updateDirection(cif.GetDir());
-		
+
 		state.updateTime(cif.GetTime());
-		
+
 		state.updateButtons(cif.GetFinished(), cif.GetReturningLed(),
 				cif.GetVisitingLed(), cif.GetStartButton(), cif.GetStopButton());
 
@@ -194,46 +196,53 @@ public class Brain {
 		 * END SENSOR UPDATE
 		 */
 
+		System.out.println("x="+state.getPos().getX()+" y="+state.getPos().getY()
+				+ " dir="+state.getDir());
 		System.out.println("time= "+state.getTime()+" Measures: ir0="
 				+ state.getIR(0)+" ir1="+state.getIR(1)
 				+" ir2=" + state.getIR(2)+" ir3=" + state.getIR(3));
-		
-		
+
+
 		// update map
-		updateMap.exec(state, map);
-		
-		if(state.getTime()==400) {
+		map.setEstimatedState(state);
+
+		if(state.getTime()==1000) {
 			try {
 				PrintWriter writer = new PrintWriter("map.txt");
-	
-			for(double ii = 0; ii < map.getWidth(); ii+=0.1) {
-				for(double jj = 0; jj < map.getHeight(); jj+=0.1)
-					writer.print(String.valueOf(map.get(ii, jj)).subSequence(0, 3)+ " ");
-				writer.println("");
-			}
-			writer.println(" ");
-			System.exit(0);
+
+				for(double jj = 14; jj > 0; jj-=0.5) {
+					writer.print(""+Double.toString(jj).substring(0, 3));
+					for(double ii = 0; ii < 28; ii+=0.5) {
+						//writer.print(map.getWallProbability(ii, jj)+" ");
+					
+						if(map.isObstacle(ii, jj))
+							writer.print("#");
+						else
+							writer.print("-");
+					}
+					writer.println("");
+				}
+				writer.close();
+				System.exit(0);
 			} catch (FileNotFoundException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 				System.exit(0);
 			}
-			
+
 		}
-			
-			
+
+
 
 		boolean avoiding = avoidObstacles();
-		
+
 		if(state.isBeaconVisible())
 			controller = new FollowBeaconBehaviour();
-		
+
 		if(avoiding && controller == null && !state.collision())
 			controller = new WallFollowBehaviour();
 
-		System.out.println("x="+state.getPos().getX()+" y="+state.getPos().getY()
-				+ " dir="+state.getDir());
-		
+
 		if(controller != null && !avoiding) {
 			double [] act = controller.exec(state);
 			setEngine(act[0], act[1]);
@@ -243,12 +252,12 @@ public class Brain {
 		}
 		else if(controller == null && !avoiding)
 			controller = new WallFollowBehaviour();
-		
+
 		else if(controller == null && !avoiding)
 			controller = new MoveDirectionBehaviour(180);
-		
-		
-		
+
+
+
 		/*
 		 * BEGIN SENSOR REQUEST
 		 */
@@ -290,19 +299,19 @@ public class Brain {
 		if (state.collision()) {
 			cif.DriveMotors(backPowIn ,-backPowIn);
 			state.updateMotors(backPowIn, -backPowIn);
-			System.out.println("----- OUCH! COLLISION. -----");
+			System.out.println("----- OUCH! COLLISION. ----- " +map.getWallProbability(state.getPos().getX(), state.getPos().getY()));
 			return true;
 		}
-		
+
 		// map check
 		double dir = state.getDir();
 		double lin = (state.getMotors()[0] + state.getMotors()[1])/2;
 		double futureX = state.getPos().getX() + Math.cos(dir)*lin;
 		double futureY = state.getPos().getY() + Math.sin(dir)*lin;
-		double prob = map.getRadius(futureX, futureY);
-		if(prob > 0.8)
-			System.out.println("PROBLEM!");
-		
+		System.out.println("FUTURE X="+futureX+" Y="+futureY);
+		if(map.isObstacle(futureX, futureY))
+			System.out.println(">>>PROBLEM!<<<");
+
 		// get dir, get futureX and futureY
 		// map.get(state.getPos().getX(), state.getPos().getY())
 
