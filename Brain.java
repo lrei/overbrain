@@ -24,11 +24,7 @@ import java.io.PrintWriter;
 import java.util.*;
 
 
-import behaviour.Behaviour;
-import behaviour.FollowBeaconBehaviour;
-import behaviour.MapBehaviour;
-import behaviour.MoveDirectionBehaviour;
-import behaviour.WallFollowBehaviour;
+import behaviour.*;
 
 import state.EstimatedMaze;
 import state.State;
@@ -134,7 +130,7 @@ public class Brain {
 
 		// MAP
 		map = new EstimatedMaze();
-		controller = new MoveDirectionBehaviour(180);
+		//controller = new MoveDirectionBehaviour(180);
 
 	}
 
@@ -149,9 +145,6 @@ public class Brain {
 		}
 	}
 
-	/**
-	 * basic reactive decision algorithm, decides action based on current sensor values
-	 */
 	public void decide() {
 		if(cif.GetStartButton() == false)
 			return;
@@ -201,35 +194,15 @@ public class Brain {
 		System.out.println("time= "+state.getTime()+" Measures: ir0="
 				+ state.getIR(0)+" ir1="+state.getIR(1)
 				+" ir2=" + state.getIR(2)+" ir3=" + state.getIR(3));
+		System.out.println("d0="+map.getDist(state.getIR(0))+" d1="+map.getDist(state.getIR(1)));
 
 
 		// update map
 		map.setEstimatedState(state);
 
-		if(state.getTime()==1000) {
-			try {
-				PrintWriter writer = new PrintWriter("map.txt");
-
-				for(double jj = 14; jj > 0; jj-=0.5) {
-					writer.print(""+Double.toString(jj).substring(0, 3));
-					for(double ii = 0; ii < 28; ii+=0.5) {
-						//writer.print(map.getWallProbability(ii, jj)+" ");
-					
-						if(map.isObstacle(ii, jj))
-							writer.print("#");
-						else
-							writer.print("-");
-					}
-					writer.println("");
-				}
-				writer.close();
-				System.exit(0);
-			} catch (FileNotFoundException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-				System.exit(0);
-			}
-
+		if(state.getTime()==800) {
+			map.write("map.txt");
+			System.exit(0);
 		}
 
 
@@ -239,8 +212,8 @@ public class Brain {
 		if(state.isBeaconVisible())
 			controller = new FollowBeaconBehaviour();
 
-		if(avoiding && controller == null && !state.collision())
-			controller = new WallFollowBehaviour();
+//		if(avoiding && controller == null && !state.collision())
+//			controller = new WallFollowBehaviour();
 
 
 		if(controller != null && !avoiding) {
@@ -250,11 +223,11 @@ public class Brain {
 			if(controller.isComplete())
 				controller = null;
 		}
-		else if(controller == null && !avoiding)
-			controller = new WallFollowBehaviour();
+//		else if(controller == null && !avoiding)
+//			controller = new WallFollowBehaviour();
 
 		else if(controller == null && !avoiding)
-			controller = new MoveDirectionBehaviour(180);
+			controller = new MoveFwdBehaviour();
 
 
 
@@ -306,8 +279,8 @@ public class Brain {
 		// map check
 		double dir = state.getDir();
 		double lin = (state.getMotors()[0] + state.getMotors()[1])/2;
-		double futureX = state.getPos().getX() + Math.cos(dir)*lin;
-		double futureY = state.getPos().getY() + Math.sin(dir)*lin;
+		double futureX = state.getPos().getX() + Math.cos(Math.toRadians(dir))*lin;
+		double futureY = state.getPos().getY() + Math.sin(Math.toRadians(dir))*lin;
 		System.out.println("FUTURE X="+futureX+" Y="+futureY);
 		if(map.isObstacle(futureX, futureY))
 			System.out.println(">>>PROBLEM!<<<");

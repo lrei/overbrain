@@ -114,6 +114,13 @@ public class State {
 	public Point2D getPos() {
 		return path.get(0);
 	}
+	
+	public double getX() {
+		return getPos().getX();
+	}
+	public double getY() {
+		return getPos().getY();
+	}
 
 	public Double getDir() {
 		return direction.get(0);

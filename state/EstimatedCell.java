@@ -11,7 +11,7 @@ public class EstimatedCell {
 	private Rectangle2D shape;
 	
 
-	private int countSightings = 1;
+	private int countSightings = 0;
 	private double wallProbability = 0.5;
 	
 	public EstimatedCell(double x, double y) {
