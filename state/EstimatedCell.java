@@ -9,6 +9,8 @@ public class EstimatedCell {
 
 	private double x, y;
 	private Rectangle2D shape;
+	private double hValue = 0;
+	private double fValue = 0;
 	
 
 	private int countSightings = 0;
@@ -55,7 +57,10 @@ public class EstimatedCell {
 	}
 
 	public void setWallProbability(double wallProbability) {
-		this.wallProbability = wallProbability;
+		if(wallProbability > 1.0)
+			this.wallProbability = 1.0;
+		else
+			this.wallProbability = wallProbability;
 		countSightings++;
 	}
 	

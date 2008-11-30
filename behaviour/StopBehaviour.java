@@ -9,6 +9,7 @@ public class StopBehaviour extends Behaviour {
 	public double[] exec(State state) {
 		double [] act = new double[2];
 
+		System.out.println("Exec Stop");
 		double left = state.getMotors()[0];
 		double right = state.getMotors()[1];
 		

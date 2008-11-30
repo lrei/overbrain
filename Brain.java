@@ -19,16 +19,20 @@
  */
 
 import java.awt.geom.Point2D;
-import java.io.FileNotFoundException;
-import java.io.PrintWriter;
+//import java.io.FileNotFoundException;
+//import java.io.PrintWriter;
 import java.util.*;
 
 
 import behaviour.*;
 
+import state.EstimatedCell;
 import state.EstimatedMaze;
+import state.Quadtree;
+import state.ReadXmlMap;
 import state.State;
 import state.Direction;
+import state.Viewer;
 
 
 
@@ -52,14 +56,17 @@ public class Brain {
 
 	private int beaconToFollow;
 
-	ReadXmlMap a;
+	
 	Planner planner;
 	Vector<Point2D> path;
 
 	Behaviour controller;
 
 	EstimatedMaze map;
+	Comunicator com;
 
+//	Viewer viewer;
+	
 	boolean replan;
 
 
@@ -128,10 +135,10 @@ public class Brain {
 		beaconToFollow = 0;
 		controller = null;
 
-		// MAP
+		// MAP, COM, VIEWER
 		map = new EstimatedMaze();
-		//controller = new MoveDirectionBehaviour(180);
-
+		com = new Comunicator();
+		//viewer = new Viewer(map.getMazeWidth(), map.getMazeHeight(), map.getCells());
 	}
 
 	/** 
@@ -190,7 +197,7 @@ public class Brain {
 		 */
 
 		System.out.println("x="+state.getPos().getX()+" y="+state.getPos().getY()
-				+ " dir="+state.getDir());
+				+ " dir="+state.getDir()+" ground="+state.getGround());
 		System.out.println("time= "+state.getTime()+" Measures: ir0="
 				+ state.getIR(0)+" ir1="+state.getIR(1)
 				+" ir2=" + state.getIR(2)+" ir3=" + state.getIR(3));
@@ -199,41 +206,111 @@ public class Brain {
 
 		// update map
 		map.setEstimatedState(state);
+//		for(int i = 0; i  < 20 ; i++)
+//			for (int j = 0; j < 20; j++)
+//				mymap[i][j].setWallProbability(1.5);
+		//viewer.refresh(map.getCells());
 
-		if(state.getTime()==800) {
-			map.write("map.txt");
-			System.exit(0);
+		if(state.getGround() != -1) {
+			state.setFound();
+			state.setTarget();
 		}
 
+//		if(state.isFound() == true && state.isAnnouncing() == false) {
+//			map.clearPath(state.getPath());
+//			//Quadtree qt = map.toQuadtree();
+//			//Planner planner = new Planner(qt, state.getPos(), state.getStartPos(), 1.0);
+//			//Vector<Point2D> plan = planner.aStar();
+//			plan 
+//			controller = new PathBehaviour(state, plan);
+//			state.setAnnouncing();
+//			System.out.println("##########################");
+//			System.out.println("NEW PATH SET!");
+//			System.out.println(plan);
+//			System.out.println("##########################");
+//		}
+		if(state.isFound() == true && state.isAnnouncing() == false) {
+			map.clearPath(state.getPath());
+			state.setAnnouncing();
+			controller = new StopBehaviour();
+		}
 
+		if(state.isFound() && controller == null) {
+			cif.Finish();
+//			System.exit(0);
+		}
 
 		boolean avoiding = avoidObstacles();
+		
+		if(state.targetFound() && !state.isFound() && !state.isAnnouncing()) {
+			controller = new GoToBehaviour(state, state.getTarget().getX(), state.getTarget().getY());
+			state.setAnnouncing();
+		}
 
-		if(state.isBeaconVisible())
-			controller = new FollowBeaconBehaviour();
+		if (!state.isFound() && controller == null) {
+			if(state.isBeaconVisible() && controller == null)
+				controller = new FollowBeaconBehaviour();
+			else
+				controller = new RandomWalkBehaviour();
+				
+			//			else if (!state.beenHere(20, 3.0)) {
+			//				controller = new ExploreBehaviour(map);
+			//			}
+		}
+		else if(!state.isFound() && controller != null) {
+			if(state.isBeaconVisible() && controller.getPriority() < 2)
+				controller = new FollowBeaconBehaviour();
+			else if(avoiding  && !state.collision() && !state.beenHere() && controller.getPriority() < 1)
+				controller = new WallFollowBehaviour();
+		}
 
-//		if(avoiding && controller == null && !state.collision())
-//			controller = new WallFollowBehaviour();
-
-
+		/*
+		 * EXECUTION
+		 */
 		if(controller != null && !avoiding) {
 			double [] act = controller.exec(state);
+			checkMove(act);
 			setEngine(act[0], act[1]);
 
-			if(controller.isComplete())
+			if(controller.isComplete()) {
+				System.out.println("Behaviour Complete");
 				controller = null;
+			}
 		}
-//		else if(controller == null && !avoiding)
-//			controller = new WallFollowBehaviour();
+		//		else if(controller == null && !avoiding)
+		//			controller = new WallFollowBehaviour();
 
-		else if(controller == null && !avoiding)
+		else if(controller == null && !avoiding) 
 			controller = new MoveFwdBehaviour();
 
 
+		/*
+		 * COMMUNICATION
+		 */
+		// RECEIVE
+//		for(int i=0; i<5; i++)
+//			if(cif.NewMessageFrom(i)) {
+//				System.out.println("Received msg from "+i);
+//				state.updateMsg(cif.GetMessageFrom(i));
+//			}
+
+		//map.setFromMsg(state);
+		//state.clearMsg();
+
+		// 100 bytes at most
+		// 1 byte for state (S)earching (F)ound
+		// 4 bytes / position => 24 positions, 3 unused bytes
+		// - F: number of robots in Found state => 1 byte
+		// - S: direction/10 => 3 bytes (e.g. -10 => -100)
+		
+		//SEND
+		//System.out.println("Talking!");
+		//cif.Say(com.talk(state));
 
 		/*
 		 * BEGIN SENSOR REQUEST
 		 */
+
 
 		if(cif.GetTime() % 2 == 0) {
 			cif.RequestIRSensor(0);
@@ -259,9 +336,9 @@ public class Brain {
 
 
 	public boolean avoidObstacles() {
-		double turnDistance = 5.0;
+		double turnDistance = 4.0;
 		//double frontAvoidDistance = 1.0;
-		double avoidDistance = 1.2;
+		double avoidDistance = 1.5;
 		double powIn = 0.1;
 		double backPowIn = 0.15;
 
@@ -270,31 +347,29 @@ public class Brain {
 		double ir2 = state.getIR(2);
 
 		if (state.collision()) {
-			cif.DriveMotors(backPowIn ,-backPowIn);
-			state.updateMotors(backPowIn, -backPowIn);
+			setEngine(backPowIn ,-backPowIn);
 			System.out.println("----- OUCH! COLLISION. ----- " +map.getWallProbability(state.getPos().getX(), state.getPos().getY()));
 			return true;
 		}
 
-		// map check
-		double dir = state.getDir();
-		double lin = (state.getMotors()[0] + state.getMotors()[1])/2;
-		double futureX = state.getPos().getX() + Math.cos(Math.toRadians(dir))*lin;
-		double futureY = state.getPos().getY() + Math.sin(Math.toRadians(dir))*lin;
-		System.out.println("FUTURE X="+futureX+" Y="+futureY);
-		if(map.isObstacle(futureX, futureY))
-			System.out.println(">>>PROBLEM!<<<");
-
-		// get dir, get futureX and futureY
-		// map.get(state.getPos().getX(), state.getPos().getY())
 
 		if( ir0 > turnDistance 
 				|| ir1 > turnDistance 
 				||  ir2 > turnDistance) {
-			cif.DriveMotors(backPowIn,-backPowIn);
-			state.updateMotors(backPowIn, -backPowIn);
+			setEngine(backPowIn ,-backPowIn);
 			state.setWallDir(Direction.none);
 			System.out.println("----- BACKTRACK! -----");
+			return true;
+		}
+		else if(ir0 > avoidDistance) {
+			double dir = state.getDir();
+			if((-180 < dir && dir < -90) || (0 < dir && dir < 90))
+				setEngine(powIn ,0);		// turn right
+			else if ((-90 < dir && dir < 0) || (90 < dir && dir < 180))
+				setEngine(0 , powIn);	// turn left
+			else
+				// TODO fix this so as to make sense from a global perspective
+				setEngine(powIn ,0);		// turn right
 			return true;
 		}
 		else if(ir1 > avoidDistance) {
@@ -313,6 +388,35 @@ public class Brain {
 		}
 
 		return false;
+	}
+
+	public double [] calcEngine(double leftIn, double rightIn) {
+		double res[] = new double[2];
+		res[0] = (state.getMotors()[0] + leftIn)/2;
+		res[1] = (state.getMotors()[1] + rightIn)/2;
+
+		return res;
+	}
+
+	boolean checkMove(double [] act) {
+		// map check
+		Point2D future = calcFuture(act);
+		System.out.println("FUTURE X="+future.getX()+" Y="+future.getY());
+		if(map.isObstacle(future.getX(), future.getY()))
+			System.out.println(">>>PROBLEM!<<<");
+
+		return false;
+	}
+
+	public Point2D calcFuture(double [] act) {
+		Point2D.Double future = new Point2D.Double();
+		double[] motor = calcEngine(act[0], act[1]);
+		double dir = state.getDir()+Math.toDegrees(motor[1]-motor[0]);
+		double lin = (act[0] + act[1])/2;
+		double futureX = state.getPos().getX() + Math.cos(Math.toRadians(dir))*lin;
+		double futureY = state.getPos().getY() + Math.sin(Math.toRadians(dir))*lin;
+		future.setLocation(futureX, futureY);
+		return future;
 	}
 
 

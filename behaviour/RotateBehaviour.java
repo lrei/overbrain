@@ -10,6 +10,7 @@ public class RotateBehaviour extends Behaviour {
 	}
 	
 	public double[] exec(State state) {
+		System.out.println("Exec Rotate Behaviour" + destDir);
 		double [] act = new double[2];
 		
 		
@@ -38,9 +39,12 @@ public class RotateBehaviour extends Behaviour {
 		double rightIn = angleDiff * 0.15/180;
 		double leftIn = -angleDiff * 0.15/180;
 		act[0] = leftIn; act[1] = rightIn;
+		System.out.println("rotate with "+ leftIn +" "+rightIn);
 		
 //		if(Math.abs(angleDiff) < 10)
 //			setComplete(true);
+		
+			
 		setComplete(true);
 		return act;
 	}

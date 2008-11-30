@@ -24,7 +24,7 @@ public class GoToBehaviour extends SequenceBehaviour {
 
 	public double [] exec(State state) {
 		double [] act = new double[2];
-		//System.out.println("Exec GoToController "+destX+", "+destY);
+		System.out.println("Exec GoToBehaviour "+destX+", "+destY);
 		act = controllers[index].exec(state);
 		if(controllers[index].isComplete())
 			index++;

@@ -6,7 +6,7 @@ public class MoveFwdBehaviour extends Behaviour {
 
 	@Override
 	public double[] exec(State state) {
-		//System.out.println("Exec MoveFwd");
+		System.out.println("Exec MoveFwd");
 		double [] act = new double[2];
 		
 		Double[] motors = state.getMotors();

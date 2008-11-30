@@ -17,7 +17,7 @@ public class WallFollowBehaviour extends Behaviour {
 
 		if(state.getIR(1) >= 1.0 && state.getIR(0) < 2.0 && state.getWallDir() == Direction.left) {
 			// wall to the left
-			act[0] = 0.0; act[1] = 0.1;
+			act[0] = 0.0; act[1] = 0.15;
 			System.out.println("Follow Wall @ Left - Slow");
 		}
 		else if(state.getIR(1) >= 1.0 && state.getIR(0) > 2.0 && state.getWallDir() == Direction.left) {
@@ -27,7 +27,7 @@ public class WallFollowBehaviour extends Behaviour {
 		}
 		else if(state.getIR(2) >= 1.0 && state.getIR(0) < 2.0 && state.getWallDir() == Direction.right) {
 			// wall to the right
-			act[0] = 0.1; act[1] = 0.0;
+			act[0] = 0.15; act[1] = 0.0;
 			System.out.println("Follow Wall @ Right - Slow");
 		}
 		else if(state.getIR(2) >= 1.0 && state.getIR(0) > 2.0 && state.getWallDir() == Direction.right) {

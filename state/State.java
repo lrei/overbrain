@@ -8,6 +8,7 @@ import ciberIF.beaconMeasure;
 
 public class State {
 	private Vector<Point2D> path;		// from the GPS
+	private Vector<Point2D> msgPath;
 	private int lastMapUpdate;
 	private Vector<Double> direction;	// from the GPS
 
@@ -27,6 +28,8 @@ public class State {
 
 	private int ground;
 	private boolean collision;
+	private boolean foundGoal;
+	private boolean announcing;
 
 	private double time;
 	
@@ -34,10 +37,14 @@ public class State {
 	private double destDir;
 	
 	Direction wallDir;
+	private Point2D target;
+	private Point2D fTarget;
+	private boolean targetFound;
 
 
 	public State() {
 		path = new Vector<Point2D>();
+		msgPath = new Vector<Point2D>();
 		direction = new Vector<Double>();
 
 		motors = new Vector<Double[]>();
@@ -52,6 +59,9 @@ public class State {
 
 		ground = -1;
 		collision = false;
+		foundGoal = false;
+		announcing = false;
+		targetFound = false;
 
 		time = 0;
 		wallDir = Direction.none;
@@ -71,6 +81,24 @@ public class State {
 			this.irSensor2.add(0, value);
 		if(index == 3)
 			this.irSensor3.add(0, value);
+	}
+	
+	public void setFound() {
+		this.foundGoal = true;
+	}
+	public boolean isFound() {
+		return this.foundGoal;
+	}
+	public void setAnnouncing() {
+		this.announcing = true;
+	}
+	public boolean isAnnouncing() {
+		return this.announcing;
+	}
+	
+	
+	public Point2D getStartPos() {
+		return path.lastElement();
 	}
 	
 	public void updateGround(int ground) {
@@ -124,6 +152,10 @@ public class State {
 
 	public Double getDir() {
 		return direction.get(0);
+	}
+	
+	public Vector<Point2D> getPath() {
+		return path;
 	}
 
 	public void updateMotors(double leftIn, double rightIn) {
@@ -185,6 +217,50 @@ public class State {
 		return result;
 	}
 	
+	public boolean beenHere() {
+		double radius = 0.5;
+		double curX = getPos().getX();
+		double curY = getPos().getY();
+		
+		for (int ii = 8; ii < path.size(); ii++) {
+			double x = path.get(ii).getX();
+			double y = path.get(ii).getY();
+			
+			if((curX-radius < x && x < curX+radius) && (curY-radius < y && y <curY+radius))
+				return true;
+		}
+		
+		return false;
+	}
+	
+	public boolean beenHere(double curX, double curY) {
+		double radius = 0.5;
+		
+		for (int ii = 3; ii < path.size(); ii++) {
+			double x = path.get(ii).getX();
+			double y = path.get(ii).getY();
+			
+			if((curX-radius < x && x < curX+radius) && (curY-radius < y && y <curY+radius))
+				return true;
+		}
+		
+		return false;
+	}
+	public boolean beenHere(int n, double radius) {
+		
+		double max = 0;
+		for (int ii = 0; ii < path.size() && ii < n; ii++) {
+			double val = Math.sqrt(Math.pow(path.get(ii).getX(),2)
+					+ Math.pow(path.get(ii).getY(),2));
+			max = Math.max(max, val);
+		}
+			
+		if(max > radius)
+			return false;
+		else
+			return true;
+	}
+	
 	public double getBeaconDir() {
 		return this.beacon.get(0).beaconDir;
 	}
@@ -195,4 +271,47 @@ public class State {
 		
 		return this.beacon.get(0).beaconVisible;
 	}
+
+	public void setTarget() {
+		this.target = getPos();
+	}
+
+	public void updateMsg(String msg) {
+		for (int ii = 1; ii < msg.length()-3; ii+=4) {
+			String xs = String.valueOf(msg.charAt(ii))
+			+ String.valueOf(msg.charAt(ii+1));
+			int x = Integer.valueOf(xs);
+			String ys = String.valueOf(msg.charAt(ii+2))
+			+ String.valueOf(msg.charAt(ii+3));
+			int y = Integer.valueOf(ys);
+			Point2D np = new Point2D.Double();
+			np.setLocation(x, y);
+			msgPath.add(0, np);
+		}
+		if(msg.charAt(0) == 'F') {
+			System.out.println("ZOMG TARGET HAS BEEN FOUND!");
+			setTargetFound(true);
+			this.fTarget = msgPath.get(0);
+		}
+	}
+	
+	private void setTargetFound(boolean b) {
+		this.targetFound = true;
+	}
+	public boolean targetFound() {
+		return this.targetFound;
+	}
+	public Point2D getTarget() {
+		return this.fTarget;
+	}
+
+	public Vector<Point2D> getMsgs() {
+		return msgPath;
+	}
+	
+	public void clearMsg() {
+		msgPath.removeAllElements();
+	}
+		
 }
+
