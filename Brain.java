@@ -1,22 +1,4 @@
-/*
-    This file is part of ciberRatoToolsSrc.
 
-    Copyright (C) 2001-2008 Universidade de Aveiro
-
-    ciberRatoToolsSrc is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    ciberRatoToolsSrc is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Foobar; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- */
 
 import java.awt.geom.Point2D;
 //import java.io.FileNotFoundException;
@@ -59,13 +41,14 @@ public class Brain {
 	
 	Planner planner;
 	Vector<Point2D> path;
+	Vector<Point2D> res = null;
 
 	Behaviour controller;
 
 	EstimatedMaze map;
 	Comunicator com;
 
-//	Viewer viewer;
+	Viewer viewer;
 	
 	boolean replan;
 
@@ -138,7 +121,16 @@ public class Brain {
 		// MAP, COM, VIEWER
 		map = new EstimatedMaze();
 		com = new Comunicator();
-		//viewer = new Viewer(map.getMazeWidth(), map.getMazeHeight(), map.getCells());
+		viewer = new Viewer(map.getMazeWidth(), map.getMazeHeight(), map.getCells());
+		
+		ReadXmlMap a = new ReadXmlMap(
+				"/Users/rei/workspace/Brain/CiberRTSS06_FinalLab.xml",
+				"/Users/rei/workspace/Brain/CiberRTSS06_FinalGrid.xml");
+		Planner p = new Planner(a.getQuadtree(), a.getStart(0), a.getTarget() , 0.5);
+		res = p.aStar();
+		
+		for (int ii = 0; ii < res.size(); ii++)
+			System.out.println(res.get(ii).toString());
 	}
 
 	/** 
@@ -206,29 +198,35 @@ public class Brain {
 
 		// update map
 		map.setEstimatedState(state);
-//		for(int i = 0; i  < 20 ; i++)
-//			for (int j = 0; j < 20; j++)
-//				mymap[i][j].setWallProbability(1.5);
-		//viewer.refresh(map.getCells());
+		viewer.refresh(map.getCells(),
+				map.translateCoord(state.getX()),
+				map.translateCoord(state.getY()));
 
 		if(state.getGround() != -1) {
 			state.setFound();
 			state.setTarget();
 		}
+		
+		// For static map reading
+		if(res != null && !state.isFound()) {
+			System.out.println("--Following Path!--");
+			state.setFound();
+			state.setAnnouncing();
+			controller = new PathBehaviour(state, res);
+		}
 
-//		if(state.isFound() == true && state.isAnnouncing() == false) {
-//			map.clearPath(state.getPath());
-//			//Quadtree qt = map.toQuadtree();
-//			//Planner planner = new Planner(qt, state.getPos(), state.getStartPos(), 1.0);
-//			//Vector<Point2D> plan = planner.aStar();
-//			plan 
-//			controller = new PathBehaviour(state, plan);
-//			state.setAnnouncing();
-//			System.out.println("##########################");
-//			System.out.println("NEW PATH SET!");
-//			System.out.println(plan);
-//			System.out.println("##########################");
-//		}
+		if(state.isFound() == true && state.isAnnouncing() == false) {
+			map.clearPath(state.getPath());
+			MPlanner planner = new MPlanner(map.reduce(), state.getPos(), state.getStartPos(), 1.0);
+			Vector<Point2D> plan = planner.aStar();
+			controller = new PathBehaviour(state, plan);
+			state.setAnnouncing();
+			System.out.println("##########################");
+			System.out.println("NEW PATH SET!");
+			System.out.println(plan);
+			System.out.println("##########################");
+			System.exit(0);
+		}
 		if(state.isFound() == true && state.isAnnouncing() == false) {
 			map.clearPath(state.getPath());
 			state.setAnnouncing();
@@ -248,7 +246,9 @@ public class Brain {
 		}
 
 		if (!state.isFound() && controller == null) {
-			if(state.isBeaconVisible() && controller == null)
+			if(state.isBeaconVisible() && 
+					Math.abs(state.getBeaconDir()) < 90 &&
+					controller == null)
 				controller = new FollowBeaconBehaviour();
 			else
 				controller = new RandomWalkBehaviour();
@@ -268,6 +268,7 @@ public class Brain {
 		 * EXECUTION
 		 */
 		if(controller != null && !avoiding) {
+			System.out.println("EXECUTING: " + controller.getName());
 			double [] act = controller.exec(state);
 			checkMove(act);
 			setEngine(act[0], act[1]);
@@ -402,10 +403,12 @@ public class Brain {
 		// map check
 		Point2D future = calcFuture(act);
 		System.out.println("FUTURE X="+future.getX()+" Y="+future.getY());
-		if(map.isObstacle(future.getX(), future.getY()))
+		if(map.isObstacle(future.getX(), future.getY())) {
 			System.out.println(">>>PROBLEM!<<<");
+			return false;
+		}
 
-		return false;
+		return true;
 	}
 
 	public Point2D calcFuture(double [] act) {

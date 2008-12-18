@@ -12,6 +12,7 @@ public class ExploreBehaviour extends Behaviour {
 
 	
 	public ExploreBehaviour(EstimatedMaze map) {
+		name = new String("Explore Behaviour");
 		this.map = map;
 		b = null;
 	}

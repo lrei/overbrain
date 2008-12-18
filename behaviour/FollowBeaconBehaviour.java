@@ -6,6 +6,7 @@ public class FollowBeaconBehaviour extends Behaviour {
 	Behaviour b = null;
 	
 	public FollowBeaconBehaviour() {
+		name = new String("FollowBeacon Behaviour");
 		priority = 2;
 	}
 

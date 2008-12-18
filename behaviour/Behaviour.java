@@ -6,6 +6,7 @@ public abstract class Behaviour {
 
 	protected boolean complete = false;
 	protected int priority = 0;
+	public String name = "Behavoiour";
 	
 	public abstract double [] exec(State state);
 	
@@ -19,6 +20,10 @@ public abstract class Behaviour {
 	
 	public int getPriority() {
 		return priority;
+	}
+	
+	public String getName() {
+		return name;
 	}
 	
 

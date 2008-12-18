@@ -8,6 +8,7 @@ import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.util.Vector;
 
+
 public class EstimatedMaze {
 
 	public static int RESOLUTION = 10;
@@ -138,15 +139,15 @@ public class EstimatedMaze {
 				double multiplier = 1.0;
 
 				if (Point2D.distance(state.getX(), state.getY(), cx, cy) < 0.5)
-					multiplier = 0.85;
+					multiplier = 0.95;
 
 				// area A
 				else if (areaA.contains(cx, cy))
-					multiplier = 0.95;
+					multiplier = 0.97;
 
 				// area B
 				else if (areaB.contains(cx, cy))
-					multiplier = 1.01;
+					multiplier = 0.99;
 
 				// area C
 				else if (areaC.contains(cx, cy)) {									
@@ -160,6 +161,9 @@ public class EstimatedMaze {
 
 	}
 
+	public int translateCoord(double c) {
+		return (int) (c*RESOLUTION);
+	}
 
 
 	public void write(String filename) {
@@ -213,98 +217,56 @@ public class EstimatedMaze {
 		return cells[(int)(RESOLUTION * x)][(int)(RESOLUTION * y)].getWallProbability() > 0.55; 
 	}
 	public boolean isObstacle(int x, int y) {
+		if (x < 0 || y < 0)
+			return true;
+		if(x > (MAX_WIDTH-1)*RESOLUTION || y > (MAX_HEIGHT-1)*RESOLUTION)
+			return true;
+		
 		return cells[x][y].getWallProbability() > 0.55; 
 	}
 
-	public boolean isObstacle(Quadtree qt, double [][] rmap) {
 
-		for(int x =  (int) qt.rect.getMinX(); x < qt.rect.getMaxX(); x++) {
-			for(int y = (int) qt.rect.getMinY(); y < qt.rect.getMaxY(); y++) {
-				if (x < 0 || y < 0)
-					return true;
-				if(x > (MAX_WIDTH-1) || y > (MAX_HEIGHT-1))
-					return true;
-				if(rmap[x][y] > 0.8)
-					return true;
-			}
-		}
-		return false;
-	}
-
-	public int reducedProb(int ii, int jj) {
-		for (int x = ii*RESOLUTION; x < (ii+1)*RESOLUTION; x++) {
-			for (int y = jj*RESOLUTION; y < (jj+1)*RESOLUTION; y++) {
+	private int reducedProb(double ii, double jj) {
+		for (int x = (int) ii*RESOLUTION; x < (ii+1)*RESOLUTION; x++) {
+			for (int y = (int) jj*RESOLUTION; y < (jj+1)*RESOLUTION; y++) {
 				if (isObstacle(x, y) || this.getSightings(x/RESOLUTION, y/RESOLUTION) < 2)
 					return 1;
 			}
 		}
 		return 0;
 	}
+	
+	private int reducedBlockProb(int x, int y) {
+		int freeCount = 0;
+		int occupiedCount = 0;
+		for(double cx = x; cx < x+(MAX_WIDTH/RESOLUTION); cx+=0.1)
+			for(double cy = y; cy < y+(MAX_HEIGHT/RESOLUTION); cy+=0.1) {
+				if(reducedProb(cx, cy) == 0)
+					freeCount++;
+				else
+					occupiedCount++;
+			}
+		if(freeCount > 2*occupiedCount)
+			return 0;
+		else
+			return 1;
+	}
 
 	public double [][] reduce() {
 		double [][] reducedMap = new double[MAX_WIDTH][MAX_HEIGHT];
+//		for(int ii = 0; ii < MAX_WIDTH; ii++)
+//			for(int jj = 0; jj < MAX_HEIGHT; jj++)
+//				reducedMap[(int)ii][(int)jj] = 1;	// init to occupied
+
 		for(int ii = 0; ii < MAX_WIDTH; ii++) {
 			for(int jj = 0; jj < MAX_HEIGHT; jj++) {
-				reducedMap[ii][jj] = reducedProb(ii, jj);
+				reducedMap[(int)ii][(int)jj] = reducedBlockProb(ii, jj);
 			}
 		}
 		return reducedMap;
 	}
-	public Quadtree toQuadtree() {
-		Quadtree root = new Quadtree();
-		// (14, 7)
-		root.rect.setRect(0, 0, MAX_WIDTH, MAX_HEIGHT);
-		double[][] rmap = reduce();
-//		for (int ii = 0; ii < MAX_WIDTH; ii++) {
-//			for(int jj = 0; jj < MAX_HEIGHT; jj++)
-//				System.out.print(rmap[ii][jj]+" ");
-//			System.out.println("");
-//		}
+	
 
-		buildQuadtree(root, rmap);
-		System.out.println("N qts="+counter);
-		return root;
-	}
-
-	public void buildQuadtree(Quadtree root, double[][] rmap) {
-
-		double w = root.rect.getWidth()/2;
-		double h = root.rect.getHeight()/2;
-
-		if (isObstacle(root, rmap)) {
-			root.occupied = 1;
-			counter++;
-
-			if (w < 1 || h < 0.5) {
-				return;
-			}
-			root.nw = new Quadtree();
-			root.ne = new Quadtree();
-			root.sw = new Quadtree();
-			root.se = new Quadtree();
-			//root.parent = root;
-
-
-			double x = root.rect.getX();
-			double y = root.rect.getY();
-
-			//System.out.println("x="+x +" y="+y);
-
-			root.nw.rect.setRect(x, y, w, h);
-			root.sw.rect.setRect(x, y+h, w, h);
-			root.ne.rect.setRect(x+w, y, w, h);
-			root.se.rect.setRect(x+w, y+h, w, h);
-
-			buildQuadtree(root.nw, rmap);
-			buildQuadtree(root.ne, rmap);
-			buildQuadtree(root.sw, rmap);
-			buildQuadtree(root.se, rmap);
-		}
-		else {
-			root.occupied = 0;
-		}
-
-	}
 	/*
 	 * doesn't actually "clear" so much as it reduces the prob
 	 */
@@ -319,7 +281,7 @@ public class EstimatedMaze {
 					continue;
 				if(x > (MAX_WIDTH-1)*RESOLUTION || y > (MAX_HEIGHT-1)*RESOLUTION)
 					continue;
-				cells[x][y].setWallProbability(cells[x][y].getWallProbability() * 0.90);
+				cells[x][y].setWallProbability(cells[x][y].getWallProbability() * 0.97);
 			}
 		}
 	}

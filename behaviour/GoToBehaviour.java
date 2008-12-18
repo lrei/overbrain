@@ -9,6 +9,7 @@ public class GoToBehaviour extends SequenceBehaviour {
 	double tolerance = 0.5;
 
 	public GoToBehaviour(State state, double destX, double destY) {
+		name = new String("Goto Behaviour");
 		this.destX = destX;
 		this.destY = destY;
 

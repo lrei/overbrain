@@ -1,7 +1,7 @@
+
 import java.awt.geom.Point2D;
 import java.util.Vector;
 
-import state.EstimatedCell;
 import state.Quadtree;
 
 
@@ -13,13 +13,6 @@ public class Planner {
 	Quadtree target;
 	Point2D targetPoint;
 	Point2D startPoint;
-	double [][] map;
-	
-	public Planner(double [][] map, Point2D start, Point2D target) {
-		targetPoint = target;
-		startPoint = start;
-		this.map = map;
-	}
 	
 	public Planner(Quadtree root, Point2D start, Point2D target, double minDistance) {
 		this.root = root;
@@ -127,27 +120,6 @@ public class Planner {
 		return path;
 	}
 	
-	private Vector<Point2D> sucessors(Point2D p) {
-		Vector<Point2D> suc = new Vector<Point2D>();
-		
-		int x = (int) p.getX();
-		int y = (int) p.getY();
-		
-		for(int nx = x-1; nx < x+1; nx++) {
-			if(nx < 0 || nx > map.length)
-				continue;
-			for(int ny = y-1; ny < y+1; ny++) {
-				if(ny < 0 || ny > map[0].length)
-					continue;
-				Point2D n = new Point2D.Double();
-				n.setLocation(nx, ny);
-				suc.add(n);
-			}
-		}
-		
-		return suc;
-	}
-	
 	
 	private Vector<Quadtree> successors(Quadtree q) {
 		Vector<Quadtree> suc = new Vector<Quadtree>();
@@ -199,17 +171,17 @@ public class Planner {
 	}
 	
 	public Quadtree findPoint(Quadtree q, Point2D p) {
-		System.out.println("findPoint " + p.getX()+", "+p.getY());
+		//System.out.println("findPoint " + p.getX()+", "+p.getY());
 		if (q == null) {
 			//System.out.println("EMPTY");
 			return null;
 		}
 		else if (q.contains(p) == false) {
-			System.out.println(q.toString() + " does not contain point");
+			//System.out.println(q.toString() + " does not contain point");
 			return null;
 		}
 		else if (q.occupied < ov) {
-			System.out.println("FOUND: " + q.toString());
+			//System.out.println("FOUND: " + q.toString());
 			return q;
 		}
 		else {
