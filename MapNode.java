@@ -12,7 +12,6 @@ public class MapNode {
 	
 	public MapNode() {
 		point = new Point2D.Double();
-		children = new HashSet<MapNode>();
 		occupied = 1;
 		parent = null;
 		fValue = Double.MAX_VALUE;

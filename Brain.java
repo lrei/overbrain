@@ -123,14 +123,16 @@ public class Brain {
 		com = new Comunicator();
 		viewer = new Viewer(map.getMazeWidth(), map.getMazeHeight(), map.getCells());
 		
-		ReadXmlMap a = new ReadXmlMap(
-				"/Users/rei/workspace/Brain/CiberRTSS06_FinalLab.xml",
-				"/Users/rei/workspace/Brain/CiberRTSS06_FinalGrid.xml");
-		Planner p = new Planner(a.getQuadtree(), a.getStart(0), a.getTarget() , 0.5);
-		res = p.aStar();
+//		ReadXmlMap a = new ReadXmlMap(
+//				"/Users/rei/workspace/Brain/CiberRTSS06_FinalLab.xml",
+//				"/Users/rei/workspace/Brain/CiberRTSS06_FinalGrid.xml");
+//		Planner p = new Planner(a.getMap(), a.getStart(0), a.getTarget() , 0.5);
+//		res = p.aStar();
+//		viewer.addPoints(res);
 		
-		for (int ii = 0; ii < res.size(); ii++)
-			System.out.println(res.get(ii).toString());
+//		for (int ii = 0; ii < res.size(); ii++)
+//			System.out.println(res.get(ii).toString());
+//		System.exit(0);
 	}
 
 	/** 
@@ -217,15 +219,16 @@ public class Brain {
 
 		if(state.isFound() == true && state.isAnnouncing() == false) {
 			map.clearPath(state.getPath());
-			MPlanner planner = new MPlanner(map.reduce(), state.getPos(), state.getStartPos(), 1.0);
+			Planner planner = new Planner(map.reduce(), state.getPos(), state.getStartPos(), 1.0);
 			Vector<Point2D> plan = planner.aStar();
 			controller = new PathBehaviour(state, plan);
+			viewer.addPoints(plan);
 			state.setAnnouncing();
 			System.out.println("##########################");
 			System.out.println("NEW PATH SET!");
-			System.out.println(plan);
+			for(Point2D pt : plan)
+				System.out.println(pt);
 			System.out.println("##########################");
-			System.exit(0);
 		}
 		if(state.isFound() == true && state.isAnnouncing() == false) {
 			map.clearPath(state.getPath());
@@ -234,6 +237,7 @@ public class Brain {
 		}
 
 		if(state.isFound() && controller == null) {
+			System.out.println("Finished.");
 			cif.Finish();
 //			System.exit(0);
 		}

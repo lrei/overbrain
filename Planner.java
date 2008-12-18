@@ -2,50 +2,42 @@
 import java.awt.geom.Point2D;
 import java.util.Vector;
 
-import state.Quadtree;
+import state.*;
 
 
 public class Planner {
 	double ov = 0.5;	// ov defines the threshhold value between occupied and free
 	double minDistance;
-	Quadtree root;
-	Quadtree start;
-	Quadtree target;
-	Point2D targetPoint;
-	Point2D startPoint;
+	EstimatedCell [][] cellMap;
+	MapNode [][] map;
+
+	MapNode target;
+	MapNode start;
 	
-	public Planner(Quadtree root, Point2D start, Point2D target, double minDistance) {
-		this.root = root;
-		this.start = findPoint(root, start);
-		if(this.start == null) {
-			System.out.println("Starting point not found inside map.");
-			System.exit(0);
-		}
-		//System.out.println("############");
-		targetPoint = target;
-		this.target = findPoint(root, target);
-		if(this.target == null)  {
-			System.out.println("Target not found inside map.");
-			System.exit(0);
-		}
+	public Planner(EstimatedCell [][] cellMap, Point2D start, Point2D target, double minDistance) {
+		this.cellMap = cellMap;
 		this.minDistance = minDistance;
-	}
 	
-	public void printList(Vector<Quadtree> l) {
-//		String res = "";
-//		for (int ii = 0; ii < l.size(); ii++)
-//			res += l.get(ii).toString() ;
-		System.out.println(l.toString());
+		map = new MapNode[cellMap.length][cellMap[0].length];
+		for(int xx = 0; xx < cellMap.length; xx++) {
+			for(int yy = 0; yy < cellMap[xx].length; yy++) {
+				map[xx][yy] = new MapNode();
+				map[xx][yy].point.setLocation(xx, yy);
+				map[xx][yy].occupied = cellMap[xx][yy].getWallProbability();
+			}
+		}
+		
+		this.start = map[(int) start.getX()][(int) start.getY()];
+		this.target = map[(int) target.getX()][(int) target.getY()];
 	}
 	
 	public Vector<Point2D> aStar() {
-		Vector<Quadtree> closedSet = new Vector<Quadtree>(); 
-		Vector<Quadtree> openSet = new Vector<Quadtree>();
+		Vector<MapNode> closedSet = new Vector<MapNode>(); 
+		Vector<MapNode> openSet = new Vector<MapNode>();
 		
-
 		start.parent = null;
 		start.gValue = 0;
-		start.hValue = h(root, target);
+		start.hValue = h(start);
 		start.fValue = start.gValue + start.hValue;
 		
 		openSet.add(start);
@@ -58,16 +50,15 @@ public class Planner {
 //			printList(closedSet);
 			
 			// get the best node of the openSet
-			Quadtree cur = getBest(openSet);
+			MapNode cur = getBest(openSet);
 			openSet.remove(cur);
 			
 			if(cur == target)	// is current node the goal?
 				break;
 			
-			Vector<Quadtree> suc = successors(cur);	// generate successors
+			Vector<MapNode> suc = successors(cur);	// generate successors
 			//printList(suc);
-			for (int ii = 0; ii < suc.size(); ii++) {
-				Quadtree s = suc.get(ii);
+			for (MapNode s: suc) {
 				// is it on the open list?
 				if (openSet.contains(s)) { 
 					double sf = s.hValue + cur.gValue + cur.distance(s);
@@ -90,7 +81,7 @@ public class Planner {
 						continue; // discard successor
 				}
 				// calculate h and f
-				s.hValue = h(s, target);
+				s.hValue = h(s);
 				s.gValue = cur.gValue + cur.distance(s);
 				s.fValue = s.hValue + s.gValue;
 				
@@ -110,8 +101,8 @@ public class Planner {
 	private Vector<Point2D> reconstruct() {
 		Vector<Point2D> path = new Vector<Point2D>();
 		
-		Quadtree q = target;
-		path.add(targetPoint);
+		MapNode q = target;
+		path.add(target.getCenter());
 		while (q != null && q != start) {
 			path.add(0, q.getCenter());
 			q = q.parent;
@@ -121,101 +112,52 @@ public class Planner {
 	}
 	
 	
-	private Vector<Quadtree> successors(Quadtree q) {
-		Vector<Quadtree> suc = new Vector<Quadtree>();
-		Point2D.Double p = new Point2D.Double();
-		Quadtree a;
-		double x = q.rect.getCenterX();
-		double y = q.rect.getCenterY();
-		double w = q.rect.getWidth() + minDistance;
-		double h = q.rect.getHeight() + minDistance;
+	private Vector<MapNode> successors(MapNode n) {
+		Vector<MapNode> suc = new Vector<MapNode>();
+		Vector<MapNode> res = new Vector<MapNode>();
+		int x = (int) n.point.getX();
+		int y = (int) n.point.getY();
 		
-		//System.out.println("x=" + x + " y=" + y + " w=" + w);
+		if(x > 0)
+			suc.add(map[x-1][y]);
+		if(y > 0)
+			suc.add(map[x][y-1]);
+		if(x > 0 && y > 0)
+			suc.add(map[x-1][y-1]);
+		if(x < map.length-1)
+			suc.add(map[x+1][y]);
+		if(y < map[0].length-1)
+			suc.add(map[x][y+1]);
+		if(x < map.length-1 && y < map[0].length-1)
+			suc.add(map[x+1][y+1]);
+		if(x < map.length-1 && y > 0)
+			suc.add(map[x+1][y-1]);
+		if(x > 0 && y < map[0].length-1)
+			suc.add(map[x-1][y+1]);
 		
-		p.setLocation(x+w, y);
-		a = findPoint(root, p);
-		if (a != null)
-			suc.add(a);
-		p.setLocation(x-w, y);
-		a = findPoint(root, p);
-		if (a != null)
-			suc.add(a);
-		p.setLocation(x, y+h);
-		a = findPoint(root, p);
-		if (a != null)
-			suc.add(a);
-		p.setLocation(x, y-h);
-		a = findPoint(root, p);
-		if (a != null)
-			suc.add(a);
+		// remove sucessors that have obstacles
+		for(MapNode s: suc)
+			if(s.occupied < ov)
+				res.add(s);
 		
-		
-		return suc;
+		return res;
 	}
 	
-	private double h(Quadtree x, Quadtree target) {
+	private double h(MapNode x) {
 		return x.distance(target);
 	}
 	
-	private Quadtree getBest(Vector<Quadtree> set) {
-		double min = h(set.get(0), target);
-		Quadtree best = set.get(0);
+	private MapNode getBest(Vector<MapNode> set) {
+		double min = h(set.get(0));
+		MapNode best = set.get(0);
 		for (int ii = 1; ii < set.size(); ii++) {
-			double h = 	h(set.get(ii), target);
+			double h = 	h(set.get(ii));
 			if (h < min) {
 				min = h;
 				best = set.get(ii);
 			}
 		}
 		return best;
-	}
-	
-	public Quadtree findPoint(Quadtree q, Point2D p) {
-		//System.out.println("findPoint " + p.getX()+", "+p.getY());
-		if (q == null) {
-			//System.out.println("EMPTY");
-			return null;
-		}
-		else if (q.contains(p) == false) {
-			//System.out.println(q.toString() + " does not contain point");
-			return null;
-		}
-		else if (q.occupied < ov) {
-			//System.out.println("FOUND: " + q.toString());
-			return q;
-		}
-		else {
-			//System.out.println("Looking inside " + q.toString());
-			// NW
-			Quadtree a = findPoint(q.nw, p);
-			if (a != null) {
-				//System.out.println("FOUND!");
-				return a;
-			}
-			// NE
-			a = findPoint(q.ne, p);
-			if (a != null) {
-				//System.out.println("FOUND!");
-				return a;
-			}
-			// SW
-			a = findPoint(q.sw, p);
-			if (a != null) {
-				//System.out.println("FOUND!");
-				return a;
-			}
-			// SE
-			a = findPoint(q.se, p);
-			if (a != null) {
-				//System.out.println("FOUND!");
-				return a;
-			}
-			
-			return root;
-		}
-		//System.out.println("NOF FOUND!!!");
-		
-		//return null;
 	}
 
 }

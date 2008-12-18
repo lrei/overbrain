@@ -80,7 +80,7 @@ public class EstimatedMaze {
 			yoff[i] = Math.sin(startAngle[i]+30) / 2;
 		}
 
-		double maxDist = 0;
+		double maxDist = 0.5;
 
 		Area areaA = new Area();
 		Area areaB = new Area();
@@ -236,31 +236,24 @@ public class EstimatedMaze {
 		return 0;
 	}
 	
-	private int reducedBlockProb(int x, int y) {
-		int freeCount = 0;
-		int occupiedCount = 0;
-		for(double cx = x; cx < x+(MAX_WIDTH/RESOLUTION); cx+=0.1)
-			for(double cy = y; cy < y+(MAX_HEIGHT/RESOLUTION); cy+=0.1) {
-				if(reducedProb(cx, cy) == 0)
-					freeCount++;
-				else
-					occupiedCount++;
+	private double reducedBlockProb(int x, int y) {
+		double res = 0;
+		for(int cx = x*RESOLUTION; cx < (x*RESOLUTION)+10; cx++) {
+			for(int cy = y*RESOLUTION; cy < (y*RESOLUTION)+10; cy++) {
+				res = res + cells[cx][cy].getWallProbability();
 			}
-		if(freeCount > 2*occupiedCount)
-			return 0;
-		else
-			return 1;
+		}
+		res = res / 100;
+		return res;
 	}
 
-	public double [][] reduce() {
-		double [][] reducedMap = new double[MAX_WIDTH][MAX_HEIGHT];
-//		for(int ii = 0; ii < MAX_WIDTH; ii++)
-//			for(int jj = 0; jj < MAX_HEIGHT; jj++)
-//				reducedMap[(int)ii][(int)jj] = 1;	// init to occupied
+	public EstimatedCell [][] reduce() {
+		EstimatedCell [][] reducedMap = new EstimatedCell[MAX_WIDTH][MAX_HEIGHT];
 
 		for(int ii = 0; ii < MAX_WIDTH; ii++) {
 			for(int jj = 0; jj < MAX_HEIGHT; jj++) {
-				reducedMap[(int)ii][(int)jj] = reducedBlockProb(ii, jj);
+				reducedMap[ii][jj] = new EstimatedCell(ii, jj);
+				reducedMap[ii][jj].setWallProbability(reducedBlockProb(ii, jj));
 			}
 		}
 		return reducedMap;

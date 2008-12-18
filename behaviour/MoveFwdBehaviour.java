@@ -11,12 +11,12 @@ public class MoveFwdBehaviour extends Behaviour {
 		
 		Double[] motors = state.getMotors();
 		
-		double powIn = 0.15;
+		double powIn = 0.1;
 		
 		double rot = Math.abs(motors[1] - motors[0]);
 		
 		if(rot > 0.20)
-			powIn = 0.1;
+			powIn = 0.05;
 		
 		//System.out.println("rot="+rot+" powIn="+powIn);
 		act[0] = act[1] = powIn;

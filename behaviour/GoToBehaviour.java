@@ -6,7 +6,7 @@ public class GoToBehaviour extends SequenceBehaviour {
 	double destX;
 	double destY;
 
-	double tolerance = 0.5;
+	double tolerance = 1;
 
 	public GoToBehaviour(State state, double destX, double destY) {
 		name = new String("Goto Behaviour");
