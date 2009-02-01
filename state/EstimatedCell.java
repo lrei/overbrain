@@ -14,7 +14,7 @@ public class EstimatedCell {
 	
 
 	private int countSightings = 0;
-	private double wallProbability = 0.5;
+	private double wallProbability = 0.55;
 	
 	public EstimatedCell(double x, double y) {
 		this.x = x;

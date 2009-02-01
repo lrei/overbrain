@@ -4,21 +4,9 @@ import java.awt.geom.Point2D;
 //import java.io.FileNotFoundException;
 //import java.io.PrintWriter;
 import java.util.*;
-
-
 import behaviour.*;
-
-import state.EstimatedCell;
-import state.EstimatedMaze;
-import state.Quadtree;
-import state.ReadXmlMap;
-import state.State;
-import state.Direction;
-import state.Viewer;
-
-
-
-
+import simViewer.*;
+import state.*;
 import ciberIF.*;
 
 
@@ -28,7 +16,9 @@ import ciberIF.*;
  */
 public class Brain {
 	ciberIF cif;
+	ViewerComms sim;
 	String robName;
+
 
 	double irSensor0;
 	double irSensor1;
@@ -47,8 +37,9 @@ public class Brain {
 
 	EstimatedMaze map;
 	Comunicator com;
-
-	Viewer viewer;
+	KalmanFilter filter = null;
+	
+	BrainViewer viewer;
 	
 	boolean replan;
 
@@ -104,6 +95,8 @@ public class Brain {
 
 		// register robot in simulator
 		client.cif.InitRobot(robName, pos, host);
+		// connect viewer
+		client.sim.connect(host, 6000);
 
 		// main loop
 		client.mainLoop();
@@ -120,8 +113,10 @@ public class Brain {
 
 		// MAP, COM, VIEWER
 		map = new EstimatedMaze();
+		sim = new ViewerComms();
 		com = new Comunicator();
-		viewer = new Viewer(map.getMazeWidth(), map.getMazeHeight(), map.getCells());
+		//filter.setProcessNoiseCovariance(1);
+		viewer = new BrainViewer(map.getMazeWidth(), map.getMazeHeight(), map.getCells());
 		
 //		ReadXmlMap a = new ReadXmlMap(
 //				"/Users/rei/workspace/Brain/CiberRTSS06_FinalLab.xml",
@@ -129,10 +124,10 @@ public class Brain {
 //		Planner p = new Planner(a.getMap(), a.getStart(0), a.getTarget() , 0.5);
 //		res = p.aStar();
 //		viewer.addPoints(res);
-		
+//
 //		for (int ii = 0; ii < res.size(); ii++)
 //			System.out.println(res.get(ii).toString());
-//		System.exit(0);
+		//System.exit(0);
 	}
 
 	/** 
@@ -148,7 +143,8 @@ public class Brain {
 
 	public void decide() {
 		if(cif.GetStartButton() == false)
-			return;
+			sim.sendToServer("<Start/>");
+			//return;
 
 		System.out.println("-------------------------------");
 		/*
@@ -189,13 +185,44 @@ public class Brain {
 		/*
 		 * END SENSOR UPDATE
 		 */
+		
+		
+		// Data from Viewer
+		MousePlayer me = null;
+		for (MousePlayer mouse : sim.mice.values()) {
+			if(mouse.getPlayerName().compareToIgnoreCase(robName) == 0)
+				me = mouse;
+		}
+		if(me != null) {
+			System.out.println("Viewer data: x = "
+					+ me.getPosition().getX()
+					+ " y = " + me.getPosition().getY()
+					+ " dir = " + me.getDirection());
+		}
 
-		System.out.println("x="+state.getPos().getX()+" y="+state.getPos().getY()
-				+ " dir="+state.getDir()+" ground="+state.getGround());
-		System.out.println("time= "+state.getTime()+" Measures: ir0="
-				+ state.getIR(0)+" ir1="+state.getIR(1)
-				+" ir2=" + state.getIR(2)+" ir3=" + state.getIR(3));
-		System.out.println("d0="+map.getDist(state.getIR(0))+" d1="+map.getDist(state.getIR(1)));
+		// Data From State
+//		System.out.println("x="+state.getPos().getX()+" y="+state.getPos().getY()
+//				+ " dir="+state.getDir()+" ground="+state.getGround());
+		if(filter == null) {
+			filter = new KalmanFilter(state.getPos().getX(), state.getPos().getY(), Math.toRadians(state.getDir()));
+		}
+		else {
+			Double[] u = state.getMotors();
+			double d = (u[0] + u[1]) / 2;
+			double a = (u[1]-u[0]);
+			double[][] k = filter.correct(state.getPos().getX(), state.getPos().getY(), Math.toRadians(state.getDir()), d, a);
+			
+			if(me != null) {
+				System.out.println("KErrX = " + (me.getPosition().getX() - k[0][0])
+						+ " KErrY = " + (me.getPosition().getY() - k[1][0])
+						+ "\nGErrX = " + (me.getPosition().getX() - state.getPos().getX())
+						+ "GErrY = " + (me.getPosition().getY() - state.getPos().getY()));
+			}
+		}
+//		System.out.println("\ntime= "+state.getTime()+" Measures: ir0="
+//				+ state.getIR(0)+" ir1="+state.getIR(1)
+//				+" ir2=" + state.getIR(2)+" ir3=" + state.getIR(3));
+//		System.out.println("d0="+map.getDist(state.getIR(0))+" d1="+map.getDist(state.getIR(1)));
 
 
 		// update map
@@ -219,7 +246,7 @@ public class Brain {
 
 		if(state.isFound() == true && state.isAnnouncing() == false) {
 			map.clearPath(state.getPath());
-			Planner planner = new Planner(map.reduce(), state.getPos(), state.getStartPos(), 1.0);
+			Planner planner = new Planner(map.reduce(1), state.getPos(), state.getStartPos(), 1.0);
 			Vector<Point2D> plan = planner.aStar();
 			controller = new PathBehaviour(state, plan);
 			viewer.addPoints(plan);

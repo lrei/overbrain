@@ -20,7 +20,6 @@ public class EstimatedMaze {
 	private double min_wall_width = 0.4;
 	public EstimatedCell[][] cells = new EstimatedCell[MAX_WIDTH * RESOLUTION][MAX_HEIGHT * RESOLUTION];
 
-	private int counter = 0;
 
 	public int getMazeWidth() {
 		return (int) MAX_WIDTH*RESOLUTION;
@@ -30,17 +29,6 @@ public class EstimatedMaze {
 		return (int) MAX_HEIGHT*RESOLUTION;
 	}
 
-
-	public void clearMap() {
-		for (int x = 0; x < MAX_WIDTH * RESOLUTION; x++)
-			for (int y = 0; y < MAX_HEIGHT * RESOLUTION; y++)
-				cells[x][y].setWallProbability(0.5);
-	}
-
-	public void setResolution(int res) {
-		EstimatedMaze.RESOLUTION = res;		
-		clearMap();
-	}
 
 	public double getWallProbability(double x, double y) {
 		x *= RESOLUTION;
@@ -226,34 +214,31 @@ public class EstimatedMaze {
 	}
 
 
-	private int reducedProb(double ii, double jj) {
-		for (int x = (int) ii*RESOLUTION; x < (ii+1)*RESOLUTION; x++) {
-			for (int y = (int) jj*RESOLUTION; y < (jj+1)*RESOLUTION; y++) {
-				if (isObstacle(x, y) || this.getSightings(x/RESOLUTION, y/RESOLUTION) < 2)
-					return 1;
+	private double reducedBlockProb(int x, int y, int nr) {
+		double prob = 0;
+		int n = 0;
+		int inc = RESOLUTION / nr;
+		for(int cx = x*RESOLUTION; cx < (x*RESOLUTION)+inc; cx++) {
+			for(int cy = y*RESOLUTION; cy < (y*RESOLUTION)+inc; cy++) {
+				prob = prob + cells[cx][cy].getWallProbability();
+				n++;
 			}
 		}
-		return 0;
-	}
-	
-	private double reducedBlockProb(int x, int y) {
-		double res = 0;
-		for(int cx = x*RESOLUTION; cx < (x*RESOLUTION)+10; cx++) {
-			for(int cy = y*RESOLUTION; cy < (y*RESOLUTION)+10; cy++) {
-				res = res + cells[cx][cy].getWallProbability();
-			}
-		}
-		res = res / 100;
-		return res;
+		prob = prob / n;
+		return prob;
 	}
 
-	public EstimatedCell [][] reduce() {
-		EstimatedCell [][] reducedMap = new EstimatedCell[MAX_WIDTH][MAX_HEIGHT];
+	public EstimatedCell [][] reduce(int nr) {
+		if(nr > RESOLUTION)
+			return null;
+		
+		EstimatedCell [][] reducedMap = 
+			new EstimatedCell[MAX_WIDTH*nr][MAX_HEIGHT*nr];
 
-		for(int ii = 0; ii < MAX_WIDTH; ii++) {
-			for(int jj = 0; jj < MAX_HEIGHT; jj++) {
+		for(int ii = 0; ii < MAX_WIDTH*nr; ii++) {
+			for(int jj = 0; jj < MAX_HEIGHT*nr; jj++) {
 				reducedMap[ii][jj] = new EstimatedCell(ii, jj);
-				reducedMap[ii][jj].setWallProbability(reducedBlockProb(ii, jj));
+				reducedMap[ii][jj].setWallProbability(reducedBlockProb(ii, jj, nr));
 			}
 		}
 		return reducedMap;

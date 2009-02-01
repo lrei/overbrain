@@ -161,7 +161,7 @@ public class State {
 	public void updateMotors(double leftIn, double rightIn) {
 		Double[] update = new Double[2];
 		double left = motors.get(0)[0];
-		double right = motors.get(0)[0];
+		double right = motors.get(0)[1];
 
 		left = (left + leftIn)/2;
 		right = (right + rightIn)/2;
