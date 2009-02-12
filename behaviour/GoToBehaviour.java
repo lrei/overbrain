@@ -6,7 +6,7 @@ public class GoToBehaviour extends SequenceBehaviour {
 	double destX;
 	double destY;
 
-	double tolerance = 1;
+	double tolerance = 0.5;
 
 	public GoToBehaviour(State state, double destX, double destY) {
 		name = new String("Goto Behaviour");
@@ -25,11 +25,11 @@ public class GoToBehaviour extends SequenceBehaviour {
 
 	public double [] exec(State state) {
 		double [] act = new double[2];
-		System.out.println("Exec GoToBehaviour "+destX+", "+destY);
+		//System.out.println("Exec GoToBehaviour ("+index+")" +destX+", "+destY);
 		act = controllers[index].exec(state);
 		if(controllers[index].isComplete())
 			index++;
-		if(index == controllers.length) {
+		if(index >= 2) {
 			//System.out.println("Are we there yet?");
 			// are we there yet?
 			double vx = destX - state.getPos().getX();

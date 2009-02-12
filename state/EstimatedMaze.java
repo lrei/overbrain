@@ -57,7 +57,155 @@ public class EstimatedMaze {
 		return ret;	// originally  ret+1
 	}
 
-	public void setEstimatedState(State state) {
+	public void updateFromState(State state) {
+		double[] ir = new double[3];
+
+		ir[0] = state.getIR(0);
+		ir[1] = state.getIR(1);
+		ir[2] = state.getIR(2);
+
+		updateMap(state.getPos(), state.getDestDir(), ir);
+		updateTargetProbability(state.getPos(), state.isBeaconVisible());
+
+	}
+
+	private void updateTargetProbability(Point2D pos, boolean beaconVisible) {
+		double beaconDist = 5.0;
+		for (int x = (int)((pos.getX() - beaconDist)*RESOLUTION); x < (pos.getX()+beaconDist) * RESOLUTION; x++) {
+			for (int y = (int)((pos.getY() - beaconDist)*RESOLUTION); y < (pos.getY()+beaconDist) * RESOLUTION; y++) {
+
+				if (x < 0 || y < 0 || x >= MAX_WIDTH * RESOLUTION || y >= MAX_HEIGHT * RESOLUTION)
+					continue;
+
+				double cx = (double)x/(double)RESOLUTION;								
+				double cy = (double)y/(double)RESOLUTION;
+
+
+				double multiplier = 1.0;
+
+				if (beaconVisible)
+					multiplier = 1.10;
+				else
+					multiplier = 0.90;
+
+				cells[x][y].setTargetProbability((cells[x][y].getTargetProbability() * multiplier));
+
+			}
+		}
+
+	}
+
+	public Vector<Point2D> updateFromMsg(State state, String msg, int senderId) {
+		if(state.getId() == senderId+1)
+			return null;
+		
+		//System.out.println("Message: " + msg);
+		String[] msgs = msg.split(":");
+		String[] fields = msgs[0].split("@");
+
+		/*
+		 * Mission
+		 */
+		String mission = fields[0];
+		if(mission.compareToIgnoreCase("F") == 0) {
+			String[] points = fields[1].split("&");
+			Vector<Point2D> path = new Vector<Point2D>();
+			for(String pointField: points) {
+				String [] point = pointField.split(";");
+				Point2D p = new Point2D.Double();
+				p.setLocation(Integer.valueOf(point[0]) + 0.5,
+						Integer.valueOf(point[1]) + 0.5);
+				path.add(p);
+			}
+			clearPath(path);
+			return path;
+		}
+		else {
+
+			/*
+			 * Position
+			 */
+			String[] posFields = fields[1].split("&");
+			Point2D pos = new Point2D.Double();
+
+			pos.setLocation(Double.valueOf(posFields[0])/10,
+					Double.valueOf(posFields[1])/10);
+
+			double dir = Double.valueOf(posFields[2]);
+
+			/*
+			 * IR
+			 */
+			String[] irFields = fields[2].split("&");
+			double[] ir = new double[3];
+
+			ir[0] = Double.valueOf(irFields[0]) / 10;
+			ir[1] = Double.valueOf(irFields[1]) / 10;
+			ir[2] = Double.valueOf(irFields[2]) / 10;
+
+
+			/*
+			 * Update Map
+			 */
+			updateMap(pos, dir, ir);
+			if(mission.compareToIgnoreCase("B") == 0) {
+				updateTargetProbability(pos, true);
+			}
+			else
+				updateTargetProbability(pos, false);
+
+		}
+		/*
+		 * HOPS!
+		 */
+		for(int mm = 1; mm < msgs.length; mm++) {
+			//System.out.println("GOT HOPPER: "+msgs[mm]);
+			fields = msgs[mm].split("@");
+
+			/*
+			 * Mission
+			 */
+			mission = fields[0];
+			/*
+			 * Position
+			 */
+			String[] posFields = fields[1].split("&");
+			Point2D pos = new Point2D.Double();
+
+			pos.setLocation(Double.valueOf(posFields[0])/10,
+					Double.valueOf(posFields[1])/10);
+
+			double dir = Double.valueOf(posFields[2]);
+
+			/*
+			 * IR
+			 */
+			String[] irFields = fields[2].split("&");
+			double[] ir = new double[3];
+
+			ir[0] = Double.valueOf(irFields[0]) / 10;
+			ir[1] = Double.valueOf(irFields[1]) / 10;
+			ir[2] = Double.valueOf(irFields[2]) / 10;
+
+
+			/*
+			 * Update Map
+			 */
+			updateMap(pos, dir, ir);
+			if(mission.compareToIgnoreCase("B") == 0) {
+				updateTargetProbability(pos, true);
+			}
+			else
+				updateTargetProbability(pos, false);
+
+		}
+
+		return null;
+	}
+
+
+
+	public void updateMap(Point2D pos, double dir, double [] ir) {
 
 		double startAngle[] = new double[] {-30, -90, 30, -120};
 		double xoff[] = new double[4];
@@ -75,9 +223,9 @@ public class EstimatedMaze {
 		Area areaC = new Area();
 
 		for (int i = 0; i < 3; i++) {
-			double dist = this.getDist(state.getIR(i));
+			double dist = this.getDist(ir[i]);
 
-			if (state.getIR(i) < 1.0)
+			if (ir[i] < 1.0)
 				continue;
 
 			double distA = dist - noise_obstacle;
@@ -86,15 +234,15 @@ public class EstimatedMaze {
 
 			maxDist = Math.max(maxDist, distC);
 
-			Arc2D.Double arcA = new Arc2D.Double(state.getX()+xoff[i]-distA,
-					state.getY()+yoff[i]-distA, distA*2, distA*2,
-					startAngle[i]+state.getDir(), 60.0,Arc2D.PIE);			
-			Arc2D.Double arcB = new Arc2D.Double(state.getX()+xoff[i]-distB,
-					state.getY()+yoff[i]-distB, distB*2, distB*2,
-					startAngle[i]+state.getDir(), 60.0,Arc2D.PIE);
-			Arc2D.Double arcC = new Arc2D.Double(state.getX()+xoff[i]-distC,
-					state.getY()+yoff[i]-distC, distC*2, distC*2,
-					startAngle[i]+state.getDir(), 60.0,Arc2D.PIE);
+			Arc2D.Double arcA = new Arc2D.Double(pos.getX()+xoff[i]-distA,
+					pos.getY()+yoff[i]-distA, distA*2, distA*2,
+					startAngle[i]+dir, 60.0,Arc2D.PIE);			
+			Arc2D.Double arcB = new Arc2D.Double(pos.getX()+xoff[i]-distB,
+					pos.getY()+yoff[i]-distB, distB*2, distB*2,
+					startAngle[i]+dir, 60.0,Arc2D.PIE);
+			Arc2D.Double arcC = new Arc2D.Double(pos.getX()+xoff[i]-distC,
+					pos.getY()+yoff[i]-distC, distC*2, distC*2,
+					startAngle[i]+dir, 60.0,Arc2D.PIE);
 
 
 			areaA.add(new Area(arcA));
@@ -114,8 +262,8 @@ public class EstimatedMaze {
 			//					+" h="+areaC.getBounds2D().getHeight());
 		}
 		int countc = 0;
-		for (int x = (int)((state.getX() - maxDist)*RESOLUTION); x < (state.getX()+maxDist) * RESOLUTION; x++) {
-			for (int y = (int)((state.getY() - maxDist)*RESOLUTION); y < (state.getY()+maxDist) * RESOLUTION; y++) {
+		for (int x = (int)((pos.getX() - maxDist)*RESOLUTION); x < (pos.getX()+maxDist) * RESOLUTION; x++) {
+			for (int y = (int)((pos.getY() - maxDist)*RESOLUTION); y < (pos.getY()+maxDist) * RESOLUTION; y++) {
 
 				if (x < 0 || y < 0 || x >= MAX_WIDTH * RESOLUTION || y >= MAX_HEIGHT * RESOLUTION)
 					continue;
@@ -126,7 +274,7 @@ public class EstimatedMaze {
 
 				double multiplier = 1.0;
 
-				if (Point2D.distance(state.getX(), state.getY(), cx, cy) < 0.5)
+				if (Point2D.distance(pos.getX(), pos.getY(), cx, cy) < 0.5)
 					multiplier = 0.95;
 
 				// area A
@@ -209,7 +357,7 @@ public class EstimatedMaze {
 			return true;
 		if(x > (MAX_WIDTH-1)*RESOLUTION || y > (MAX_HEIGHT-1)*RESOLUTION)
 			return true;
-		
+
 		return cells[x][y].getWallProbability() > 0.55; 
 	}
 
@@ -220,6 +368,8 @@ public class EstimatedMaze {
 		int inc = RESOLUTION / nr;
 		for(int cx = x*RESOLUTION; cx < (x*RESOLUTION)+inc; cx++) {
 			for(int cy = y*RESOLUTION; cy < (y*RESOLUTION)+inc; cy++) {
+				if((cx >= cells.length) || (cy >= cells[0].length))
+					continue;
 				prob = prob + cells[cx][cy].getWallProbability();
 				n++;
 			}
@@ -229,9 +379,9 @@ public class EstimatedMaze {
 	}
 
 	public EstimatedCell [][] reduce(int nr) {
-		if(nr > RESOLUTION)
+		if((nr > RESOLUTION) || (nr < 1))
 			return null;
-		
+
 		EstimatedCell [][] reducedMap = 
 			new EstimatedCell[MAX_WIDTH*nr][MAX_HEIGHT*nr];
 
@@ -243,7 +393,7 @@ public class EstimatedMaze {
 		}
 		return reducedMap;
 	}
-	
+
 
 	/*
 	 * doesn't actually "clear" so much as it reduces the prob
@@ -272,10 +422,6 @@ public class EstimatedMaze {
 	public EstimatedCell [][] getCells() {
 		return cells;
 	}
-	
-	public void setFromMsg(State state) {
-		Vector<Point2D> path = state.getMsgs();
-		clearPath(path);
-	}
+
 }
 

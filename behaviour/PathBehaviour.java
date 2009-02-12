@@ -9,8 +9,10 @@ import state.State;
 public class PathBehaviour extends SequenceBehaviour {
 	Vector<Point2D> bpath;
 
+
 	public PathBehaviour(State state, Vector<Point2D> path) {
 		name = new String("Path Behaviour");
+		priority = 0;
 
 		bpath = path;
 

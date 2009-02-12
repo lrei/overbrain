@@ -15,6 +15,7 @@ public class EstimatedCell {
 
 	private int countSightings = 0;
 	private double wallProbability = 0.55;
+	private double targetProbability = 0.55;
 	
 	public EstimatedCell(double x, double y) {
 		this.x = x;
@@ -59,9 +60,23 @@ public class EstimatedCell {
 	public void setWallProbability(double wallProbability) {
 		if(wallProbability > 1.0)
 			this.wallProbability = 1.0;
-		else
+		else if (wallProbability < 0)
+			this.wallProbability = 0;
 			this.wallProbability = wallProbability;
 		countSightings++;
+	}
+	
+	public double getTargetProbability() {
+		return targetProbability;
+	}
+	
+	public void setTargetProbability(double targetProbability) {
+		if(targetProbability > 1.0)
+			this.targetProbability = 1.0;
+		else if (targetProbability < 0)
+			this.targetProbability = 0;
+		else
+			this.targetProbability = targetProbability;
 	}
 	
 }

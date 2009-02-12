@@ -12,7 +12,7 @@ public class FollowBeaconBehaviour extends Behaviour {
 
 	@Override
 	public double[] exec(State state) {
-		System.out.println("Exec Follow Beacon " +state.getBeaconDir());
+		//System.out.println("Exec Follow Beacon " +state.getBeaconDir());
 		
 		double dir = state.getBeaconDir() + state.getDir();
 		

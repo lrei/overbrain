@@ -5,10 +5,15 @@ import java.util.Random;
 import state.State;
 
 public class RandomWalkBehaviour extends Behaviour {
+	
+	 public RandomWalkBehaviour() {
+		 name = "RandomWalkBehavoiour";
+		 priority = 5;
+	 }
 
 	@Override
 	public double[] exec(State state) {
-		System.out.println("Exec Random Walk Behaviour");
+		//System.out.println("Exec Random Walk Behaviour");
 		Random random = new Random();
 		double diff = 0.0;
 		double [] act = new double[2];

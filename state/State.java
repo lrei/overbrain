@@ -7,10 +7,14 @@ import ciberIF.beaconMeasure;
 
 
 public class State {
+	int id;
 	private Vector<Point2D> path;		// from the GPS
 	private Vector<Point2D> msgPath;
 	private int lastMapUpdate;
 	private Vector<Double> direction;	// from the GPS
+	private Vector<Point2D> solution;
+	
+	String[] msgs;
 
 	private Vector<Double[]> motors; // left = [0], right = [1]
 
@@ -42,7 +46,8 @@ public class State {
 	private boolean targetFound;
 
 
-	public State() {
+	public State(int id) {
+		this.id = id;
 		path = new Vector<Point2D>();
 		msgPath = new Vector<Point2D>();
 		direction = new Vector<Double>();
@@ -66,7 +71,14 @@ public class State {
 		time = 0;
 		wallDir = Direction.none;
 		lastMapUpdate = 0;
+		
+		msgs = new String[5];
+		for(int ii = 0; ii < 5; ii++)
+			msgs[ii] = null;
+		
 	}
+	
+	public int getId() { return this.id; }
 
 	public void updateTime(double time) {
 		this.time = time;
@@ -276,23 +288,17 @@ public class State {
 		this.target = getPos();
 	}
 
-	public void updateMsg(String msg) {
-		for (int ii = 1; ii < msg.length()-3; ii+=4) {
-			String xs = String.valueOf(msg.charAt(ii))
-			+ String.valueOf(msg.charAt(ii+1));
-			int x = Integer.valueOf(xs);
-			String ys = String.valueOf(msg.charAt(ii+2))
-			+ String.valueOf(msg.charAt(ii+3));
-			int y = Integer.valueOf(ys);
-			Point2D np = new Point2D.Double();
-			np.setLocation(x, y);
-			msgPath.add(0, np);
-		}
-		if(msg.charAt(0) == 'F') {
-			System.out.println("ZOMG TARGET HAS BEEN FOUND!");
-			setTargetFound(true);
-			this.fTarget = msgPath.get(0);
-		}
+	/*
+	 * State keeps received MSGs so that it can "hop" them if
+	 * necessary and possible
+	 */
+	public void updateMsg(String msg, int id) {
+		//id = id - 1;
+		msgs[id] = msg;
+	}
+	
+	public String getMsgFrom(int id) {
+		return msgs[id];
 	}
 	
 	private void setTargetFound(boolean b) {
@@ -305,13 +311,21 @@ public class State {
 		return this.fTarget;
 	}
 
-	public Vector<Point2D> getMsgs() {
-		return msgPath;
-	}
-	
-	public void clearMsg() {
-		msgPath.removeAllElements();
-	}
+	public void clearMsg(int id) {
+		//id = id - 1;
+		msgs[id] = null;
 		
+	}
+
+	public void setSolution(Vector<Point2D> plan) {
+		this.solution = plan;
+		
+	}
+
+	public Vector<Point2D> getSolution() {
+		return solution;
+	}
+
+
 }
 

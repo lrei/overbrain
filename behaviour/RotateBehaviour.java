@@ -7,6 +7,7 @@ public class RotateBehaviour extends Behaviour {
 
 	public RotateBehaviour(double destDir) {
 		this.destDir = destDir;
+		name = "RotateBehavior";
 	}
 	
 	public double[] exec(State state) {
