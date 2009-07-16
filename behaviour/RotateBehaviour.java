@@ -11,7 +11,7 @@ public class RotateBehaviour extends Behaviour {
 	}
 	
 	public double[] exec(State state) {
-		System.out.println("Exec Rotate Behaviour" + destDir);
+		//System.out.println("Exec Rotate Behaviour" + destDir);
 		double [] act = new double[2];
 		
 		

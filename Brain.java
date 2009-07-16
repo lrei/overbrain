@@ -260,8 +260,8 @@ public class Brain {
 			map.clearPath(state.getPath());
 			Planner planner = new Planner(map.reduce(1), state.getPos(), state.getStartPos(), 1.0);
 			Vector<Point2D> plan = planner.aStar();
-			if(cif.GetTime() < 3400) {
-				timeLeft = (int) (3500 - cif.GetTime()) / 2;
+			if(cif.GetTime() < 4800) {
+				timeLeft = (int) (4800 - cif.GetTime()) / 2;
 				controller = new PathBehaviour(state, plan);
 				System.out.println("##########################");
 				System.out.println("NEW PATH SET! - ANNOUCING");
