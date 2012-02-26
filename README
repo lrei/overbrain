@@ -1,0 +1,13 @@
+Related paper:
+
+L.Rei, L.P.Reis. “Brain: A Deliberative CiberMouse Agent”, 10th Conf. on Mobile Robots and Competitions - ROBOTICA 2010, Leiria, Portugal, pp. 35-40.
+
+
+ * Written in Java;
+ * Good architecture (state machine, object oriented);
+ * cooperation between homogeneous agents;
+ * A* search algorithm;
+ * Probabilistic mapping;
+ * message hoping.
+
+
